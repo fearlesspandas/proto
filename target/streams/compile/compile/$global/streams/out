@@ -1,0 +1,8 @@
+[0m[[0m[31merror[0m] [0m[0m/home/landon/git/Proto/src/main/scala/Typeable.scala:57:18: overriding method + in trait Dat of type [A >: Int with Double with Typical.core.Typeable.number](a: A, b: A)A;[0m
+[0m[[0m[31merror[0m] [0m[0m method + has incompatible type[0m
+[0m[[0m[31merror[0m] [0m[0m    override def +[A <: Int with Double with number](a: A, b: A): A = ???[0m
+[0m[[0m[31merror[0m] [0m[0m                 ^[0m
+[0m[[0m[31merror[0m] [0m[0m/home/landon/git/Proto/src/main/scala/Typeable.scala:22:19: contravariant type U occurs in covariant position in type  <: Typical.core.Typeable.Dat[U] of type U[0m
+[0m[[0m[31merror[0m] [0m[0m  trait provider[-U<:Dat[U]]{[0m
+[0m[[0m[31merror[0m] [0m[0m                  ^[0m
+[0m[[0m[31merror[0m] [0m[0mtwo errors found[0m
