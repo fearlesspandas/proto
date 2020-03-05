@@ -1,6 +1,6 @@
 package Typical.core;
 
-import Typical.core.Typeable.Data
+import Typical.core.Typeable
 import org.apache.spark.sql.DataFrame
 
 import scala.reflect.{ClassTag, classTag}
@@ -11,157 +11,187 @@ import scala.collection.immutable.HashMap
 
 
 object Typeable {
+
   //Data Accessor/consistency maintainer
-  trait provider[-U<:Dat[_]]{
-    //val myType = typeOf[U]
-    //def get[A<:Data[_] with Col[_]](implicit classtag:ClassTag[A]):Option[A]
-    //def get[one<:U]:B>:number
-    def get[A<:U with Col[_] with Dat[_] with Data[_]](implicit typetag:TypeTag[A], classtag:ClassTag[A]):Option[A] //retrieve axioms/calc values (all applicable values should have extended U)
-    //def update[A<:Col[_]](value:U)(implicit classtag: ClassTag[A]):Unit
-    def build[A<:Col[_] with Dat[_] with Data[_]](implicit tag:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[Col[A]].asInstanceOf[A]
-    def update(key:String,value:Int)
-  }
-  trait Data[-A<:Col[_]] {
+  trait provider[-U] {
+    def get[A <: U]: Option[A] //retrieve axioms/calc values (all applicable values should have extended U)
+    def update[A <: U](value: U): provider[U]
   }
 
-  //algebraic operations
-  trait Dat[+U<:Dat[U]]
-  {
-    def +[A,Dat[A]>:U](a:A,b:A):A
-  }
-  //Data Type wrapper tied to provider
-  //Glues data to scala type layer
-  case class Col[A<:Col[_] with Dat[_] with Data[_]](value:Int = 0)(implicit prov:provider[A],ag:TypeTag[A],ctag:ClassTag[A]){
-    // if U>:A provider[U]<:provider[A]
-    def data[U>:A<: Data[_] with Col[_] with Dat[_]](implicit typetag:TypeTag[U], ctag:ClassTag[U]) : Option[U] = prov.asInstanceOf[provider[U]].get[U] //get but do not update new value in provider
-    //def provider[U>:A<:Col[_]]:provider[U] = prov.asInstanceOf[provider[U]]
-    val provider = prov
-    val refval:Int = (if(value == null) prov.get[A].getOrElse(0).asInstanceOf[Int] else this.value)
-   // def run[B](f: A => B): Col[B]
-  }
-  trait Ax[A<:Ax[A] with Dat[_]] extends Col[A] with Data[A]
-  trait Calc[A<:Calc[_,U] with Dat[_],-U<:Col[_]] extends Col[A] with Data[A with U]{
-     //def data2[X>:Data[U]<:Data[_]](implicit tag:ClassTag[X]):Option[X] = this.provider.get[X]
+  trait Ring[-U] extends sigma[U] {
+    def +[A, Ring[A] <: U](a: A, b: A): A
   }
 
-  //Grammatical rule that allows for calculation/iteration given data is available
-  //and there is a defined way to compute the result
-  implicit class Calcable[A<:Col[_] with Dat[_] with Data[_],B<:Calc[_,A] with Dat[_] with Col[B]](a:Col[A])(implicit f: Col[A] => B,prov:provider[B]){
-    def calc[U<:B with Dat[_]](implicit tagb: ClassTag[B]):Col[A with B] = {
-      val res = f(a)
-      prov.update(classTag[B].runtimeClass.getSimpleName(),res.value)
-      res.asInstanceOf[Col[A with B]]
-    }//provider gets updated upon calculation
+  trait sigma[-A]
+
+  trait prod[+A]
+
+  trait DataAccess[-A]
+
+  trait DataProduction[+A]
+
+  trait dataset[-A <: dataset[_]] //extends DataAccess[A] with DataProduction[A]
+  trait ax[A <: ax[A]] extends dataset[A]
+
+  trait model[dependencies <: dataset[_], output <: model[dependencies,_]] extends dataset[output] with DataAccess[dependencies with output] with DataProduction[output] {
+    val initialVal: Any
+  }
+
+  implicit class Calc[A <: dataset[_] with DataAccess[_], B <: model[A, _]](a: dataset[A])(implicit f:dataset[A] =>dataset[B]){
+    def calc[U>:A]: dataset[A with B] = f(a)
+  }
+  implicit class Data[A<:dataset[_]](a:dataset[A]){
+    def fetch[U>:A<:dataset[U]]:U = ???
   }
 
   //concretely define algebraic operators
-  trait number extends Dat[Int with Double with number] {//with Data[Int with Double with number]
-    override def +[A,Dat[A] >: Int with Double with number](a: A, b: A): A = (a,b) match {
-      case (i:Int,j:Int) => (i + j).asInstanceOf[A]
-      case (i:Double,j:Double) => (i + j).asInstanceOf[A]
-      case (i:Col[A],j:Col[A]) => {
-        class Temp(override val value:Int)(implicit prov:provider[Temp],ctag:ClassTag[A],ttag:TypeTag[A],tag:ClassTag[Temp],temptag:TypeTag[Temp]) extends Ax[Temp] with number
-        (new T(i.value + j.value).asInstanceOf[A with number])
-      }
+  trait number extends Ring[Int with Double with number] with provider[number] { //with Data[Int with Double with number]
+    override def +[A, Ring[A] <: Int with Double with number](a: A, b: A): A = (a, b) match {
+      case (i: Int, j: Int) => (i + j).asInstanceOf[A]
+      case (i: Double, j: Double) => (i + j).asInstanceOf[A]
       case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
     }
-    def +[A,Dat[A] >:number<:Dat[_]](a: A): A = this.+(this.asInstanceOf[A],a)
-    def toInt = this match{
-      case c:Col[_] => c.value
-      case _ => this.asInstanceOf[Int]
-    }
-    //def +[A<:number](a: A): number = this.+(this.asInstanceOf[A],a)
-  }
-//  implicit class toNum[A<:number with Col[_]](a:A with number)(implicit tag:TypeTag[A]){
-//    //here b would be one <:number, A would be Int
-//    def tonum = {
-//      a.asInstanceOf[number]
-//    }
-//  }
 
-  //concretely define data provider object
-  //and put it in implicit scope
-  implicit object p extends provider[number] {
-    trait nummap[B>:Dat[number]] extends Map[String,B]{
-      var mymap:Map[String,B] = HashMap[String,B]()
-      //val mymap:Map[String] = null
-    }
+    def +[A, Ring[A] <: number](a: A): A = this.+(this.asInstanceOf[A], a)
 
-    val nmap = new HashMap[Col[_], number]()
-    var smap:HashMap[String,Int] = HashMap[String,Int]()
-
-    smap = smap.updated("one" , 1)
-    smap = smap.updated("two",2)
-    smap= smap.updated("three", 3)
-    smap = smap.updated("T",100)
-
-    //def getter[A <: Col[_]](implicit classtag: ClassTag[A]): Option[A] = smap.get(classTag[A].runtimeClass.getSimpleName()).collectFirst({case a:Int => a.asInstanceOf[A]})
-    def getter[A<:number with Col[_] with Dat[_] with Data[_]](implicit ttag:TypeTag[A], classtag: ClassTag[A]): Option[A with number] = {
-      println(classTag[A].runtimeClass.getSimpleName())
-      class Temp(override val value:Int)(implicit prov:provider[A]) extends Col[A] with number
-      //class Temp(override val value:Int)(implicit prov:provider[A]) extends A with number
-      Some(
-        new T(smap.get(classTag[A].runtimeClass.getSimpleName()).get).asInstanceOf[A with number] //problem
-      )
-    }
-    //def map[A >: number](implicit classTag: TypeTag[A]): Map[String, A] = smap.toMap[String, A]
-
-    override def get[A <: number with Col[_] with Dat[_] with Data[_]](implicit typetag:TypeTag[A],classtag: ClassTag[A]): Option[A with number] = getter[A]
-
-     //override def update[A <: Col[_]](value:number)(implicit classtag: ClassTag[A]): Unit = {smap = smap.updated(classTag[A].runtimeClass.getSimpleName(),value.asInstanceOf[Int])}
-    //override def update[A <: Col[_]](value: number)(implicit classtag: ClassTag[A]): Unit = ???
-
-    override def update(key: String, value: Int): Unit = smap = smap.updated(key,value)
+    override def get[A <: number]: Option[A] = ??? //retrieve axioms/calc values (all applicable values should have extended U)
+    override def update[A <: number](value: number): provider[number] = ???
   }
 
-//  implicit class pgetter(a:provider[number]){
-//    def getter[A>:number<:Col[_]](implicit classtag:ClassTag[A]):Option[A] = a.getter[A]
-//  }
 
-  class one extends Ax[one] with number
-  class two extends Ax[two] with number
+  case class data[A<:dataset[_]]() extends dataset[A]
 
-  trait three extends Ax[three] with number
+  class one extends ax[one] with number
+
+  class two extends ax[two] with number
+
+  //trait three extends ax[three] with number
+
   //T <: Col[one with two] with Dat[one with two with T[A]]
-  class T(override val value:Int) extends Calc[T,one with two with T] with number
+  class T(override val initialVal: Any) extends model[one with two with T, T] with number
 
-  class OtherThing(override val value:Int) extends Calc[OtherThing,two with T] with number
+  class OtherThing(override val initialVal: Int) extends model[two with T, OtherThing] with number
 
 
   //need Col[one with two] => number to a subtype of Col[one with two] => T[Double]
-  implicit val T_Iterator: (Col[one with two with T] => T) =
-    (src:Col[one with two with T]) =>
-  {
-    val t = src.data[T].getOrElse(0).asInstanceOf[number]
-    val x =  src.data[one].getOrElse(2) .asInstanceOf[number] //+ t//+ src.data[two].get //grab data and use as normal for calculation.
-    println("is num " + x.isInstanceOf[number]  + t.isInstanceOf[number])
-    println("option " + x.toString + t.toString)
-    val result = (x + t)
-    println("result " + result)
-    println("is T " + result.isInstanceOf[T])
-    new T(result.toInt)
+  implicit val T_Iterator: (dataset[one with two with T] => dataset[T]) =
+    (src: dataset[one with two with T]) => {
+          val t = src.fetch[T]
+      //    val x =  src.data[one].getOrElse(2) .asInstanceOf[number] //+ t//+ src.data[two].get //grab data and use as normal for calculation.
+      //    println("is num " + x.isInstanceOf[number]  + t.isInstanceOf[number])
+      //    println("option " + x.toString + t.toString)
+      //    val result = (x + t)
+      //    println("result " + result)
+      //    println("is T " + result.isInstanceOf[T])
+      new T(0)
+    }
+
+  implicit val other_itr: dataset[two with T] => dataset[OtherThing] = (src: dataset[two with T]) => {
+    //    val twwo = src.data[two].getOrElse(0).asInstanceOf[number]
+    //    val t = src.data[T].getOrElse(0).asInstanceOf[number]
+    //    val res = (twwo + t).toInt
+    //    println("other result " + res)
+    new OtherThing(0)
   }
 
-  implicit val other_itr: Col[two with T] => OtherThing = (src:Col[two with T]) => {
-    val twwo = src.data[two].getOrElse(0).asInstanceOf[number]
-    val t = src.data[T].getOrElse(0).asInstanceOf[number]
-    val res = (twwo + t).toInt
-    println("other result " + res)
-    new OtherThing(res)
-  }
 
+  //val result = (data[one with two with T with OtherThing])//.calc[T].calc[T].calc[T].calc[OtherThing].calc[T]
+//  val performanceTest = (0 until 1000).foldLeft(new Col[one with two with T])((a, c) => a.calc[T])
+//  (new Col[two with T]).calc[OtherThing]
 
-  val result = (new Col[one with two with T]).calc[T].calc[T]
-  (new Col[two with T]).calc[OtherThing]
-  def main(args:Array[String]):Unit = {
-    p.smap.keys.foreach( s => println(s))
-    (new one).toString()
-    println(result)
-  }
-
-//  trait sigma[-U<:sigma[_]]{
-//    def f[A>:U]:sigma[A] = ???
+//  def main(args: Array[String]): Unit = {
+//    p.smap.keys.foreach(s => println(s))
+//    (new one).toString()
+//    println(result)
+//    println(performanceTest)
 //  }
-//  class Test extends sigma[Int with String with DataFrame]
-//  (new Test).f[DataFrame]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //Typesafe definition of a ring
+  trait SimpleRing[U]{
+    type +[A<:U,B<:U] = U //with A with B
+    type *[A<:U,B<:U] = U
+
+    //id[A]:A for any A<:U
+    //+[A,id]:A
+    //defines A as the type within U
+    //such that + with any type
+    // with identity produces A
+    //this value should uniquely be U (up to
+    // provable equivalence for any types within
+    // the ring
+    type idDef[A>:this.+[_,this.idDef[_]]] = A with U
+    //def +[A<:U,B<:U](a:A,b:B):this.+[A,B]
+    //def *[A<:U,B<:U](a:A,b:B):this.*[A,B]
+    class Thing
+//    trait thing[A,B<:this.+[A,Id[_]]]{
+//      type +[_,B]= A
+//    }
+    //type thing[A<:U,B<:this.+[A,Id[_]]] = +[A,Id[_]] with A
+
+    type Id[A>:U] = idDef[A] with U
+
+    //
+    //type identity[A<:U] = Id[A] with thing[A,+[A,Id[A]]]
+  }
+
+  trait RingWithIdentity[U] extends SimpleRing[U]{
+    //override type +[A<:U,B>:U] = A
+  }
+
+  trait SimpleRingType[U]{
+    trait Join[-X]
+    trait Meet[+X]
+    type With[X,Y] = X with Y
+    type +[A<:U,B<:U] = Join[A with B] with U
+    type *[A<:U,B<:U] = Meet[A with  B] with U
+    //id[A]:A for any A<:U
+    //+[A,id]:A
+    //defines A as the type within U
+    //such that + with any type
+    // with identity produces A
+    //this value should uniquely be U (up to
+    // provable equivalence for any types within
+    // the ring
+    type idDef[A>:this.+[_,this.idDef[_]]] = A with U
+    type Id[A<:U] = idDef[U]
+  }
+  trait numb
+
+
+  object ring extends RingWithIdentity[numb]
+  import ring._
+  //class num[A] extends numb with Id[A]
+  //val ring = (new myRing)
+
+  trait AAA extends numb//[AAA]
+  trait BBB extends numb//[BBB]
+  trait CCC extends numb//[CCC]
+  //val testvar:AAA = null.asInstanceOf[+[AAA,BBB]]
+
+
+
 }
