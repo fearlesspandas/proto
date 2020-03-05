@@ -61,37 +61,37 @@ object Typeable {
 
   case class data[A<:dataset[_]]() extends dataset[A]
 
-  class one extends ax[one] with number
+  class balance extends ax[balance] with number
 
-  class two extends ax[two] with number
+  class baserate extends ax[baserate] with number
 
   //trait three extends ax[three] with number
 
   //T <: Col[one with two] with Dat[one with two with T[A]]
-  class T(override val initialVal: Any) extends model[one with two with T, T] with number
+  class TaxBurden(override val initialVal: Any) extends model[balance with baserate with TaxBurden, TaxBurden] with number
 
-  class OtherThing(override val initialVal: Int) extends model[two with T, OtherThing] with number
+  class NetIncome(override val initialVal: Int) extends model[balance with TaxBurden, NetIncome] with number
 
 
   //need Col[one with two] => number to a subtype of Col[one with two] => T[Double]
-  implicit val T_Iterator: (dataset[one with two with T] => dataset[T]) =
-    (src: dataset[one with two with T]) => {
-          val t = src.fetch[T]
+  implicit val T_Iterator: (dataset[balance with baserate with TaxBurden] => dataset[TaxBurden]) =
+    (src: dataset[balance with baserate with TaxBurden]) => {
+          val t = src.fetch[TaxBurden]
       //    val x =  src.data[one].getOrElse(2) .asInstanceOf[number] //+ t//+ src.data[two].get //grab data and use as normal for calculation.
       //    println("is num " + x.isInstanceOf[number]  + t.isInstanceOf[number])
       //    println("option " + x.toString + t.toString)
       //    val result = (x + t)
       //    println("result " + result)
       //    println("is T " + result.isInstanceOf[T])
-      new T(0)
+      new TaxBurden(0)
     }
 
-  implicit val other_itr: dataset[two with T] => dataset[OtherThing] = (src: dataset[two with T]) => {
+  implicit val other_itr: dataset[balance with TaxBurden] => dataset[NetIncome] = (src: dataset[balance with TaxBurden]) => {
     //    val twwo = src.data[two].getOrElse(0).asInstanceOf[number]
     //    val t = src.data[T].getOrElse(0).asInstanceOf[number]
     //    val res = (twwo + t).toInt
     //    println("other result " + res)
-    new OtherThing(0)
+    new NetIncome(0)
   }
 
 
