@@ -1,11 +1,6 @@
-import Typical.core.Typeable._
-import org.apache.spark.sql.{Column, SparkSession}
-import org.apache.spark.sql.functions.{lit, when}
 
 object Test {
 
-  val spark = SparkSession.builder().getOrCreate()
-  import spark.implicits._
 
 //  implicit val df = Seq((1,2)).toDF("one","two")
 //
