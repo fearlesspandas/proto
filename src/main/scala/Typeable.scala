@@ -19,7 +19,9 @@ object Typeable {
     //def get[A <: U]: Option[A] //retrieve axioms/calc values (all applicable values should have extended U)
     val mymap:Map[String,Any]
     def get[A](implicit tag:ClassTag[A]):Option[Any]
-    def update[A <: dataset[_]](value: Any)(implicit tag:ClassTag[A]): provider[U]
+    def update[A <: dataset[_]](value: A): provider[U]
+    def put(s:String,a:Int)
+    def getStateful(s:String):Int
   }
 
   trait Ring[-U] extends sigma[U] {
@@ -37,26 +39,34 @@ object Typeable {
   trait DataProduction[+A]
 
   trait dataset[+A <: dataset[_]]{
-    var initialVal:Int
+    val initialVal:Int
+    val name:String
     //type prvdr[U>:A] = provider[U]
-    var prov:provider[Nothing]
-    def apply(initialVal:Int)(implicit tag:ClassTag[A]) : dataset[A] = {
-      val This = this.apply(prov.update[A](initialVal))
-      This.initialVal = initialVal
-      This
-    }
-    def apply(p:provider[Nothing]): dataset[A] = {
-      this.prov = p
+    implicit var prov:provider[Nothing]
+    def apply(initialVal:Int) : dataset[A] = {
+      //val This = this.apply(prov.update[A](initialVal))
+      //This.initialVal = initialVal
+      //This
+
       this
     }
+//    def apply(p:provider[Nothing]): dataset[A] = {
+//      this.prov = p
+//      this
+//    }
     def setprov(prod:provider[_]) = this.prov = prod
-    def set(value:Int) = this.initialVal = value
+    //def set(value:Int) = this.initialVal = value
     def plus[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
   }
-  trait ax[A <: ax[A]] extends dataset[A]
+  trait ax[A <: ax[A]] extends dataset[A]{
+    implicit val tag:ClassTag[A]
+    val name:String = classTag[A].runtimeClass.getSimpleName
+  }
 
-  trait model[-dependencies <: dataset[_], +output <: model[_,output]] extends dataset[output] {//with DataAccess[dependencies with output] with DataProduction[output] {
+  trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {//with DataAccess[dependencies with output] with DataProduction[output] {
     //val initialVal: Any
+    implicit val tag:ClassTag[output]
+    val name:String = classTag[output].runtimeClass.getSimpleName
     implicit val iterateFrom:dataset[dependencies] => dataset[output]
   }
 
@@ -69,10 +79,12 @@ object Typeable {
     }
   }
   implicit class DataProvider[A<:dataset[_]](a:dataset[A])(implicit prov:provider[A]){
-    def fetch[U>:A<:dataset[U]](implicit tagu:ClassTag[U]):U = {
+    def fetch[U>:A<:dataset[U]](implicit tagu:ClassTag[U]):dataset[U] = {
       val instance = build[U]
+      val instance2 = instance.apply(prov.getStateful(instance.name))
+
       //instance.apply(instance.prov.get[U].collectFirst({case r:Int => r}).get).asInstanceOf[U]
-      instance
+      instance2//.asInstanceOf[U]
     }
     //    {
 //      val initval =
@@ -96,174 +108,28 @@ object Typeable {
       case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
     }
     def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
-    var refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
+    val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
+    val statefulmap = mutable.HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
     override val mymap:Map[String,Any] = refmap
 
     //override def get[A <: number]: Option[A] = ??? //retrieve axioms/calc values (all applicable values should have extended U)
-    def apply(m:HashMap[String,Any]):number= {
-        this.refmap = m
-      this
-    }
+//    def apply(m:HashMap[String,Any]):number= {
+//        this.refmap = m
+//      this
+//    }
     override def get[A](implicit tag:ClassTag[A]):Option[Any] = {
       val name = buildName[A]
       val ret = mymap.get(name)
       ret
     }//.collectFirst({case r:Int => r})
-    override def update[A <: dataset[_]](value: Any)(implicit tag:ClassTag[A]): provider[number] = {
+    override def update[A <: dataset[_]](value: A): provider[number] = {
       //println("Submitted value " + value.initialVal)
-      this.apply(refmap.updated(buildName[A],build[A].initialVal))
+      //this.apply(refmap.updated(buildName[A],build[A].initialVal))
+      this
     }
+    override def getStateful(s:String):Int = this.statefulmap.get(s).collect({case i:Int => i; case _ => 0}).get
+    override def put(s: String, a: Int): Unit = this.statefulmap.update(s,a)
   }
-
-
-  case class data[+A<:dataset[_]](override var initialVal: Int = 1) extends dataset[A]{
-      override var prov:provider[Nothing] = myprovider
-     //def apply(): dataset[A] = new data().asInstanceOf[dataset[A]]
-  }
-
-  class sim[-A<:dataset[_],+B<:model[_,B]](override var initialVal: Int)(implicit override val iterateFrom: dataset[A] => dataset[B]) extends model[A,B] {
-    override var prov:provider[Nothing] = myprovider
-  }
-
-  class balance extends ax[balance] with number{
-    override var  initialVal = 1000
-    override var prov:provider[Nothing] = myprovider
-  }
-
-  class baserate extends ax[baserate] with number{
-    override var  initialVal = 1
-    override var prov:provider[Nothing] = myprovider
-  }
-
-  //trait three extends ax[three] with number
-
-  //T <: Col[one with two] with Dat[one with two with T[A]]
-
-
-
-  implicit object myprovider extends number
-
-  //need Col[one with two] => number to a subtype of Col[one with two] => T[Double]
-  implicit val T_Iterator: dataset[balance with baserate] => dataset[TaxBurden] =
-    (src: dataset[balance with baserate]) => {
-      //val tax = src.fetch[TaxBurden]
-      val bal = src.fetch[balance]
-      val rate = src.fetch[baserate]
-      val res = bal.plus( rate)
-      //println("res " + res)
-      new TaxBurden()(res.initialVal)
-    }
-  class TaxBurden extends sim[balance with baserate, TaxBurden](0) with number{
-
-  }
-
-  implicit val other_itr: dataset[balance with TaxBurden] => dataset[NetIncome] = (src: dataset[balance with TaxBurden]) => {
-        val bal = src.fetch[balance]
-        val t = src.fetch[TaxBurden]
-        val res:number = bal + t
-        println("other result " + res)
-    new NetIncome()(res.asInstanceOf[Int])
-  }
-
-  class NetIncome extends sim[balance with TaxBurden, NetIncome](0) with number
-
-  val result: dataset[balance with baserate with TaxBurden] = data[balance with baserate with TaxBurden]()//.calc[TaxBurden]//.calc[TaxBurden].calc[TaxBurden] //.calc[OtherThing].calc[T]
-
-
-//  val performanceTest = (0 until 1000).foldLeft(new Col[one with two with T])((a, c) => a.calc[T])
-//  (new Col[two with T]).calc[OtherThing]
-
-  def main(args: Array[String]): Unit = {
-    val test = result.calc[TaxBurden].calc[TaxBurden].calc[TaxBurden].calc[TaxBurden]
-    println("testval " + test.initialVal)
-  }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  //Typesafe definition of a ring
-  trait SimpleRing[U]{
-    type +[+A<:U,+B<:U] = U //with A with B
-    type *[A<:U,B<:U] = U
-
-    //id[A]:A for any A<:U
-    //+[A,id]:A
-    //defines A as the type within U
-    //such that + with any type
-    // with identity produces A
-    //this value should uniquely be U (up to
-    // provable equivalence for any types within
-    // the ring
-    type idDef[A>:this.+[_,this.idDef[_]]] = A with U
-    //def +[A<:U,B<:U](a:A,b:B):this.+[A,B]
-    //def *[A<:U,B<:U](a:A,b:B):this.*[A,B]
-    class Thing
-//    trait thing[A,B<:this.+[A,Id[_]]]{
-//      type +[_,B]= A
-//    }
-    //type thing[A<:U,B<:this.+[A,Id[_]]] = +[A,Id[_]] with A
-
-    type Id[A>:U] = idDef[A] with U
-
-    //
-    //type identity[A<:U] = Id[A] with thing[A,+[A,Id[A]]]
-  }
-
-  trait RingWithIdentity[U] extends SimpleRing[U]{
-    //override type +[A<:U,B>:U] = A
-  }
-
-  trait SimpleRingType[U]{
-    trait Join[-X]
-    trait Meet[+X]
-    type With[X,Y] = X with Y
-    type +[A<:U,B<:U] = Join[A with B] with U
-    type *[A<:U,B<:U] = Meet[A with  B] with U
-    //id[A]:A for any A<:U
-    //+[A,id]:A
-    //defines A as the type within U
-    //such that + with any type
-    // with identity produces A
-    //this value should uniquely be U (up to
-    // provable equivalence for any types within
-    // the ring
-    type idDef[A>:this.+[_,this.idDef[_]]] = A with U
-    type Id[A<:U] = idDef[U]
-  }
-  trait numb
-
-
-  object ring extends RingWithIdentity[numb]
-  import ring._
-  //class num[A] extends numb with Id[A]
-  //val ring = (new myRing)
-
-  trait AAA extends numb//[AAA]
-  trait BBB extends numb//[BBB]
-  trait CCC extends numb//[CCC]
-  //val testvar:AAA = null.asInstanceOf[+[AAA,BBB]]
-
 
 
 }
