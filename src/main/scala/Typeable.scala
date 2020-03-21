@@ -110,7 +110,7 @@ object Typeable {
     }
     //def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
     val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
-    val statefulmap = mutable.HashMap[String,Any](("balance",1000.0),("baserate",0.23),("TaxBurden",0.0))
+    val statefulmap = mutable.HashMap[String,Any]()
     override val mymap:Map[String,Any] = refmap
 
     //override def get[A <: number]: Option[A] = ??? //retrieve axioms/calc values (all applicable values should have extended U)
@@ -128,7 +128,7 @@ object Typeable {
       //this.apply(refmap.updated(buildName[A],build[A].initialVal))
       this
     }
-    override def getStateful(s:String):Double = this.statefulmap.get(s).collect({case i:Double => i; case _ => 0}).get
+    override def getStateful(s:String):Double = this.statefulmap.get(s).collect({case i:Double => i; case _ => 0}).getOrElse(0)
     override def put(s: String, a: Double): Unit = this.statefulmap.update(s,a)
   }
 
