@@ -20,15 +20,15 @@ object Typeable {
     val mymap:Map[String,Any]
     def get[A](implicit tag:ClassTag[A]):Option[Any]
     def update[A <: dataset[_]](value: A): provider[U]
-    def put(s:String,a:Int)
-    def getStateful(s:String):Int
+    def put(s:String,a:Double)
+    def getStateful(s:String):Double
   }
 
   trait Ring[-U] extends sigma[U] {
-    def +[A, Ring[A] <: U](a: A, b: A): A
+    def ringplus[A, Ring[A] <: U](a: A, b: A): A
   }
   trait ReRing[U]{
-    def +[A>:U](a: A, b: A): A
+    def reringplus[A>:U](a: A, b: A): A
   }
   trait sigma[-A]
 
@@ -39,11 +39,11 @@ object Typeable {
   trait DataProduction[+A]
 
   trait dataset[+A <: dataset[_]]{
-    val initialVal:Int
+    val initialVal:Double
     val name:String
     //type prvdr[U>:A] = provider[U]
     implicit var prov:provider[Nothing]
-    def apply(initialVal:Int) : dataset[A] = {
+    def apply(initialVal:Double) : dataset[A] = {
       //val This = this.apply(prov.update[A](initialVal))
       //This.initialVal = initialVal
       //This
@@ -56,7 +56,8 @@ object Typeable {
 //    }
     def setprov(prod:provider[_]) = this.prov = prod
     //def set(value:Int) = this.initialVal = value
-    def plus[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
+    def +[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
+    def *[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal * u.initialVal)
   }
   trait ax[A <: ax[A]] extends dataset[A]{
     implicit val tag:ClassTag[A]
@@ -101,15 +102,15 @@ object Typeable {
 //      case (i:dataset[_],j:dataset[_]) => (i.initialVal + j.initialVal).asInstanceOf[A]
 //      case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
 //    }
-    override def +[A>: Int with Double with number](a: A, b: A): A = (a, b) match {
+    override def reringplus[A>: Int with Double with number](a: A, b: A): A = (a, b) match {
       case (i: Int, j: Int) => (i + j).asInstanceOf[A]
       //case (i: Double, j: Double) => (i + j).asInstanceOf[A]
-      case (i:dataset[_],j:dataset[_]) => (i.plus (j)).asInstanceOf[A]
+      case (i:dataset[_],j:dataset[_]) => (i + j).asInstanceOf[A]
       case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
     }
-    def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
+    //def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
     val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
-    val statefulmap = mutable.HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
+    val statefulmap = mutable.HashMap[String,Any](("balance",1000.0),("baserate",0.23),("TaxBurden",0.0))
     override val mymap:Map[String,Any] = refmap
 
     //override def get[A <: number]: Option[A] = ??? //retrieve axioms/calc values (all applicable values should have extended U)
@@ -127,8 +128,8 @@ object Typeable {
       //this.apply(refmap.updated(buildName[A],build[A].initialVal))
       this
     }
-    override def getStateful(s:String):Int = this.statefulmap.get(s).collect({case i:Int => i; case _ => 0}).get
-    override def put(s: String, a: Int): Unit = this.statefulmap.update(s,a)
+    override def getStateful(s:String):Double = this.statefulmap.get(s).collect({case i:Double => i; case _ => 0}).get
+    override def put(s: String, a: Double): Unit = this.statefulmap.update(s,a)
   }
 
 
