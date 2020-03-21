@@ -1,9 +1,8 @@
 import Typical.core.Typeable._
 import impl._
 import scala.reflect.ClassTag
-
+import Typical.implicits.implicits._
 object Test {
-
   /**
    * This class is an example of a simple custom simulation built to model tax burden over N years.
    * It requires two axioms as dependencies, taxable balance, and the base tax rate. These are
