@@ -10,17 +10,11 @@ object Order {
 
   import Typical.implicits.implicits._
   implicit object myprovider extends number
-  class player extends axiom[player](0) with number{
-    val isplayer = true
-  }
-  class item extends axiom[item](0) with number
-//
-//  class price extends axiom[price](0) with number
-//  implicit val tx: dataset[player with item with price] => dataset[order] = (src: dataset[player with item with price]) => {
-//    val p = src.fetch[player]
-//    new order()(0)
-//  }
 
+  //below is an implementation of a basic order matching system
+  //defined very generally across essentially arbitrary types.
+  //Orders in this system are then placed by calling the standard
+  //calc method on the expected type of the order
   implicit val tx1 : dataset[two with one] => dataset[one] = (src:dataset[two with one]) => new one()(src.fetch[one].initialVal - 1d)
   implicit val tx2 : dataset[one with two] => dataset[two] = null
 

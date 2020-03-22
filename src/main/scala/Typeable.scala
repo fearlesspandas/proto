@@ -13,6 +13,7 @@ import Typical.implicits.implicits._
 object Typeable {
   def build[A](implicit tagA:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
   def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A].runtimeClass.getSimpleName()
+
   //Data Accessor/consistency maintainer
   trait provider[-U] {
     val mymap:Map[String,Any]
@@ -44,7 +45,9 @@ object Typeable {
     def setprov(prod:provider[_]) = this.prov = prod
     //def set(value:Int) = this.initialVal = value
     def +[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
+    def -[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal - u.initialVal)
     def *[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal * u.initialVal)
+    def /[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal / u.initialVal)
   }
 
   trait ax[A <: ax[A]] extends dataset[A]{

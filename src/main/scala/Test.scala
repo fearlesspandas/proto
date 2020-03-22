@@ -79,7 +79,7 @@ object Test {
 
   /**
    * With recursive sims theres a few important things to remember when building more complex simulations.
-   * First is that calc returns a dataset of the same type as the one you called it on (it is monadic in this regard)
+   * First is that calc returns a dataset of the same type as the one you called it on (it is somewhat monadic in this regard)
    * and therefore many recursive, or non recursive sims can be chained together so long as they can be computed from the
    * initial dataset
    * Second  is that ORDER MATTERS when building up a sim with calc. Doing dataset[A with B].calc[A].calc[B] will not
