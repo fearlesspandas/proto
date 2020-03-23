@@ -11,7 +11,7 @@ object Test {
    *
    */
 
-  class balance extends axiom[balance](1000d) with number
+  class balance extends axiom[balance](1d) with number
 
   class baserate extends axiom[baserate](0.23) with number
 
@@ -44,22 +44,23 @@ object Test {
        * Use any operations defined for datasets which include common algebraic operations
        */
       val res = (bal * rate) + tax
-      new TaxBurden()(res.initialVal)
+      new TaxBurden().reset(res.initialVal)
     }
 
   /**
    * Example of a non-recursive sim. Simply retrieves tax burden and copies it.
    */
-  implicit val tester_map = (src:dataset[TaxBurden]) => {
+  implicit val tester_map = (src:dataset[TaxBurden with balance]) => {
     val tx = src.fetch[TaxBurden]
-    new TaxTester()(tx.initialVal)
+    val bal = src.fetch[balance]
+    new TaxTester().reset(tx.initialVal)
   }
 
   /**
    * If our calculating function is in the implicit scope we don't have to declare it explicitly
    * DevNote: There should not be a required initial value for non recursive sims.
    */
-  class TaxTester extends sim[TaxBurden,TaxTester](0d)
+  class TaxTester extends sim[TaxBurden with balance,TaxTester](0d)
 
 
   /**
@@ -91,7 +92,7 @@ object Test {
    * If we wanted to bring our sim only to a state of only having calculated n/2 years, for example,
    * we simply just stop calling calc after n/2 iterations on TaxBurden
    */
-  val performanceTest = (0 until 100000).foldLeft[dataset[balance with baserate with TaxBurden]](data[balance with baserate with TaxBurden](0))((a, c) => a.calc[TaxBurden]).initialVal
+  val performanceTest = (0 until 100000).foldLeft[dataset[balance with baserate with TaxBurden with TaxTester]](data[balance with baserate with TaxBurden with TaxTester](0))((a, c) => a.calc[TaxBurden]).initialVal
 
   def main(args: Array[String]): Unit = {
     println("Total Tax burden over 1000000 years " + performanceTest)

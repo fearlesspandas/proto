@@ -10,8 +10,8 @@ package object impl{
   case class axiom[A<:ax[A]](override val initialVal: Double,initializing:Boolean = true)(override implicit val tag:ClassTag[A],override implicit var prov:provider[Nothing] ) extends ax[A]{
     if (this.prov.getStateful(this.name) == 0) this.prov.put(this.name,this.initialVal)
     override def apply(initial: Double): dataset[A] = {
-      class temp extends axiom[A](initial,false)
-      (new temp).asInstanceOf[A]
+      new axiom[A](initial,false).asInstanceOf[A]
+      //(new temp).asInstanceOf[A]
     }
   }
 
@@ -26,10 +26,12 @@ package object impl{
     override var prov:provider[Nothing] = myprovider
      if (this.prov.getStateful(this.name) == 0) this.prov.put(this.name,this.initialVal)
     override def apply(initial: Double): dataset[B] = {
-      val res = this.initialVal + initial
-      class temp extends sim[A,B](initial)
+      new sim[A,B](initial).asInstanceOf[B]
+    }
+    def reset(initial: Double): dataset[B] = {
+      //class temp extends sim[A,B](initial)
       this.prov.put(this.name,initial)
-      (new temp).asInstanceOf[B]
+      new sim[A,B](initial).asInstanceOf[B]
     }
   }
 
