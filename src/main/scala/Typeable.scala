@@ -19,8 +19,8 @@ object Typeable {
     val mymap:Map[String,Any]
     def get[A](implicit tag:ClassTag[A]):Option[Any]
 
-    def put(s:String,a:Double)
-    def getStateful(s:String):Double
+    def put(s:String,a:Any)
+    def getStateful(s:String):Any
   }
 
   trait Ring[-U] extends sigma[U] {
@@ -38,16 +38,16 @@ object Typeable {
   trait DataProduction[+A]
 
   trait dataset[+A <: dataset[_]]{
-    val initialVal:Double
+    val initialVal:Any
     val name:String
     implicit var prov:provider[Nothing]
-    def apply(initialVal:Double) : dataset[A] = this
+    def apply(initialVal:Any) : dataset[A] = this
     def setprov(prod:provider[_]) = this.prov = prod
     //def set(value:Int) = this.initialVal = value
-    def +[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
-    def -[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal - u.initialVal)
-    def *[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal * u.initialVal)
-    def /[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal / u.initialVal)
+//    def +[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
+//    def -[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal - u.initialVal)
+//    def *[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal * u.initialVal)
+//    def /[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal / u.initialVal)
   }
 
   trait ax[A <: ax[A]] extends dataset[A]{
@@ -67,7 +67,7 @@ object Typeable {
     override def reringplus[A>: Int with Double with number](a: A, b: A): A = (a, b) match {
       case (i: Int, j: Int) => (i + j).asInstanceOf[A]
       //case (i: Double, j: Double) => (i + j).asInstanceOf[A]
-      case (i:dataset[_],j:dataset[_]) => (i + j).asInstanceOf[A]
+      //case (i:dataset[_],j:dataset[_]) => (i + j).asInstanceOf[A]
       case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
     }
     //def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
@@ -80,8 +80,8 @@ object Typeable {
       val ret = mymap.get(name)
       ret
     }
-    override def getStateful(s:String):Double = this.statefulmap.get(s).collect({case i:Double => i; case _ => 0}).getOrElse(0)
-    override def put(s: String, a: Double): Unit = this.statefulmap.update(s,a)
+    override def getStateful(s:String):Any = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => s; case _ => null}).getOrElse(null)
+    override def put(s: String, a: Any): Unit = this.statefulmap.update(s,a)
   }
 
 

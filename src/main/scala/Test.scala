@@ -22,7 +22,7 @@ object Test {
    * in non-recursive sims) the implicit value must be passed explicitly in the constructor.
    */
 
-  class TaxBurden extends recSim[TaxBurden,balance with baserate with TaxBurden](iterateFrom = T_Iterator)(0d ) with number
+  class TaxBurden extends recSim[TaxBurden,balance with baserate with TaxBurden](iterateFrom = T_Iterator)(Seq()) with number
 
   /**
    * We then concretely define what we want our recursive calculation to be as a generic function
@@ -43,7 +43,8 @@ object Test {
       /**
        * Use any operations defined for datasets which include common algebraic operations
        */
-      val res = (bal * rate) + tax
+      //val res = (bal * rate) + tax
+      val res = tax.append(bal)
       new TaxBurden().reset(res.initialVal)
     }
 
@@ -67,7 +68,7 @@ object Test {
    * running a sim is done with the convenient data class, which implements dataset.
    * First we build a dataset as follows
    */
-  val dat: dataset[balance with baserate with TaxBurden with TaxTester] = data[balance with baserate with TaxBurden with TaxTester](0)//.calc[TaxBurden]//.calc[TaxBurden].calc[TaxBurden] //.calc[OtherThing].calc[T]
+  val dat: dataset[balance with baserate with TaxBurden with TaxTester] = data[balance with baserate with TaxBurden with TaxTester](Seq())//.calc[TaxBurden]//.calc[TaxBurden].calc[TaxBurden] //.calc[OtherThing].calc[T]
   /**
    * Any data type defined above that has a valid calculating function in scope, relative to this dataset, will be available for
    * immediate calculation through the calc method. For example, if we removed balance from dat, we would not be able to calculate TaxBurden,
@@ -92,9 +93,13 @@ object Test {
    * If we wanted to bring our sim only to a state of only having calculated n/2 years, for example,
    * we simply just stop calling calc after n/2 iterations on TaxBurden
    */
-  val performanceTest = (0 until 100000).foldLeft[dataset[balance with baserate with TaxBurden with TaxTester]](data[balance with baserate with TaxBurden with TaxTester](0))((a, c) => a.calc[TaxBurden]).initialVal
+  lazy val performanceTest = (0 until 200000).foldLeft[dataset[balance with baserate with TaxBurden with TaxTester]](data[balance with baserate with TaxBurden with TaxTester](Seq()))((a, c) => a.calc[TaxBurden])
 
   def main(args: Array[String]): Unit = {
-    println("Total Tax burden over 1000000 years " + performanceTest)
+    val t0 = System.nanoTime()
+    println("Starting performance test")
+    println("Total Tax burden over 1000000 years " + performanceTest.initialVal.asInstanceOf[Seq[_]].size)
+    val t1 = System.nanoTime()
+    println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
 }

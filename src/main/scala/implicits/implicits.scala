@@ -17,6 +17,11 @@ object implicits {
       val instance = build[U]
       instance.apply(prov.getStateful(instance.name))
     }
+    def +[U<:dataset[_]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Double] + u.initialVal.asInstanceOf[Double])
+    def -[U<:dataset[_]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Double] - u.initialVal.asInstanceOf[Double])
+    def *[U<:dataset[_]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Double] * u.initialVal.asInstanceOf[Double])
+    def /[U<:dataset[_]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Double] / u.initialVal.asInstanceOf[Double])
+    def append[U<:dataset[_]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Seq[_]] :+ u.initialVal)
     //add any custom operations to dataset here
     //Could be algebraic operations outside of those defined for Double
     //or any custom operations

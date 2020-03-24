@@ -15,7 +15,7 @@ object Order {
   //defined very generally across essentially arbitrary types.
   //Orders in this system are then placed by calling the standard
   //calc method on the expected type of the order
-  implicit val tx1 : dataset[two with one] => dataset[one] = (src:dataset[two with one]) => new one()(src.fetch[one].initialVal - 1d)
+  implicit val tx1 : dataset[two with one] => dataset[one] = (src:dataset[two with one]) => new one()(src.fetch[one].initialVal.asInstanceOf[Double] - 1d)
   implicit val tx2 : dataset[one with two] => dataset[two] = null
 
   class one extends recSim[one,two with one](tx1)(1d) with number
