@@ -1,8 +1,5 @@
 package Typical.core;
 
-import Typical.core.Typeable
-import org.apache.spark.sql.DataFrame
-
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.{universe => ru}
 import ru._
@@ -11,6 +8,7 @@ import scala.collection.immutable.HashMap
 import Typical.implicits.implicits._
 
 object Typeable {
+
   def build[A](implicit tagA:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
   def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A].runtimeClass.getSimpleName()
 
@@ -20,7 +18,8 @@ object Typeable {
     def get[A](implicit tag:ClassTag[A]):Option[Any]
 
     def put(s:String,a:Any)
-    def getStateful(s:String):Any
+    def getStateful(s:String):Option[Any]
+    def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as
   }
 
   trait Ring[-U] extends sigma[U] {
@@ -37,17 +36,18 @@ object Typeable {
 
   trait DataProduction[+A]
 
+  trait InitialType[A,+B<:dataset[_]]{
+    type tpe = A
+    val typedInitVal:A
+    def apply(initialVal: dataset[_] with InitialType[tpe,_]): dataset[B] with InitialType[tpe,B]
+    def applyFromData(initVal:tpe):dataset[B] with InitialType[tpe,B]
+  }
   trait dataset[+A <: dataset[_]]{
     val initialVal:Any
     val name:String
     implicit var prov:provider[Nothing]
-    def apply(initialVal:Any) : dataset[A] = this
+    def appl(initialVal:Any*) : dataset[A] = this
     def setprov(prod:provider[_]) = this.prov = prod
-    //def set(value:Int) = this.initialVal = value
-//    def +[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal + u.initialVal)
-//    def -[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal - u.initialVal)
-//    def *[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal * u.initialVal)
-//    def /[U<:dataset[_]](u:U):dataset[A] = this.apply(this.initialVal / u.initialVal)
   }
 
   trait ax[A <: ax[A]] extends dataset[A]{
@@ -80,9 +80,12 @@ object Typeable {
       val ret = mymap.get(name)
       ret
     }
-    override def getStateful(s:String):Any = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => s; case _ => null}).getOrElse(null)
+    override def getStateful(s:String):Option[Any] = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
+    override def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
+      val res = this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
+      res
+    }
     override def put(s: String, a: Any): Unit = this.statefulmap.update(s,a)
   }
-
 
 }
