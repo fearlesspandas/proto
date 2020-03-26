@@ -1,5 +1,7 @@
 package Typical.core;
 
+import Typical.core.Typeable.provider
+
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.{universe => ru}
 import ru._
@@ -14,12 +16,25 @@ object Typeable {
 
   //Data Accessor/consistency maintainer
   trait provider[-U] {
-    val mymap:Map[String,Any]
-    def get[A](implicit tag:ClassTag[A]):Option[Any]
-
-    def put(s:String,a:Any)
-    def getStateful(s:String):Option[Any]
-    def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as
+    //val mymap:Map[String,Any]
+    val statefulmap:Map[String,Any]
+    def put(s: String, a: Any): provider[U] ={
+      class temp(override val statefulmap:Map[String,Any]) extends provider[U]
+      new temp(this.statefulmap.updated(s,a))
+    }
+//    def put(s: String, a: Any): Unit
+//    def getStateful(s:String):Option[Any]
+//    def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as
+    def get[A](implicit tag:ClassTag[A]):Option[Any] = {
+      val name = buildName[A]
+      val ret = this.statefulmap.get(name)
+      ret
+    }
+     def getStateful(s:String):Option[Any] = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
+     def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
+      val res = this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
+      res
+    }
   }
 
   trait Ring[-U] extends sigma[U] {
@@ -39,15 +54,16 @@ object Typeable {
   trait InitialType[A,+B<:dataset[_]]{
     type tpe = A
     val typedInitVal:A
-    def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_]): dataset[B with U] with InitialType[tpe,_]
-    def applyFromData[U<:dataset[_] with InitialType[A,_]](initial: A): dataset[B with U] with InitialType[A,_]
+    def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_],prov:provider[_]): dataset[B with U] with InitialType[tpe,_]
+    def applyFromData[U<:dataset[_] with InitialType[A,_]](initial: A,prov:provider[_]): dataset[B with U] with InitialType[A,_]
+    implicit val prov:provider[_]
   }
   trait dataset[+A <: dataset[_]]{
     val initialVal:Any
     val name:String
-    implicit var prov:provider[Nothing]
-    def appl(initialVal:Any*) : dataset[A] = this
-    def setprov(prod:provider[_]) = this.prov = prod
+
+    def dataprovider():provider[_]
+    //def setprov(prod:provider[_]) = this.prov = prod
   }
 
   trait ax[A <: ax[A]] extends dataset[A]{
@@ -76,20 +92,40 @@ object Typeable {
     }
     //def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
     val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
-    val statefulmap = mutable.HashMap[String,Any]()
-    override val mymap:Map[String,Any] = refmap
-
-    override def get[A](implicit tag:ClassTag[A]):Option[Any] = {
+    override val statefulmap = HashMap[String,Any]()
+    //override val nonstatefulmap = HashMap[String,Any]()
+    //override val mymap:Map[String,Any] = refmap
+    def getfrommap[A](m:Map[String,Any])(implicit tag:ClassTag[A]):Option[Any] = {
       val name = buildName[A]
-      val ret = mymap.get(name)
+      val ret = m.get(name)
       ret
     }
-    override def getStateful(s:String):Option[Any] = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
-    override def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
-      val res = this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
+    def getStatefulfrommap(s:String,m:Map[String,Any]):Option[Any] = m.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
+    def getOtherfrommap[U<:dataset[_],as](m:Map[String,Any])(implicit tag:ClassTag[U]):as = {
+      val res = m.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
       res
     }
-    override def put(s: String, a: Any): Unit = this.statefulmap.update(s,a)
+    def putInMap(s: String, a: Any,m:Map[String,Any]): Map[String,Any] =  {
+      m.updated(s,a)
+    }
+//    override def put(s: String, a: Any): provider[number] = {
+//      class temp(override val statefulmap:Map[String,Any]) extends provider[number]
+//      new temp(this.statefulmap.updated(s,a))
+//    }
+//    override def put(s: String, a: Any)(implicit prov:provider[_]): provider[number] = {
+//      class P extends provider[number] {
+//        override val mymap: Map[String, Any] = this.mymap
+//        override val nonstatefulmap = prov.nonstatefulmap.updated(s,a)
+//        override def get[A](implicit tag: ClassTag[A]): Option[Any] = getfrommap[A](this.nonstatefulmap)
+//
+//        override def put(s: String, a: Any): provider[number] = putInMap()
+//
+//        override def getStateful(s: String): Option[Any] = getStatefulfrommap(s,this.nonstatefulmap)
+//
+//        override def getOther[U <: dataset[_], as](implicit tag: ClassTag[U]): as = getOtherfrommap[U,as](this.nonstatefulmap)
+//      }
+//      new P
+//    }
   }
 
 }

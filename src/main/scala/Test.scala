@@ -10,20 +10,23 @@ object Test {
    * initial value
    *
    */
+  implicit object myprovider extends number
 
-  class balance extends axiom[Double,balance](1000d) with number
+  class balance extends axiom[Double,balance](1000d)
 
-  class baserate extends axiom[Double,baserate](0.23) with number
+  class baserate extends axiom[Double,baserate](0.23)
+
   implicit val t : dataset[balance] => dataset[mylist] = _ => new mylist()
-  class mylist extends sim[Seq[_],balance,mylist](Seq(12d,3d,4d,5d)) with number
+  class mylist extends sim[Seq[_],balance,mylist](Seq(12d,3d,4d,5d))
 
   /**
    * The TaxBurden class then defines a recursive sim. recSim is structured as recSim[output,dependencies] and in the case of a recursive
    * sim, it must itself be included as a dependency (otherwise a compile time error will be thrown). Currently in recursive sims (but not
    * in non-recursive sims) the implicit value must be passed explicitly in the constructor.
    */
+  //implicit val p:provider[_] = m3
+  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden with mylist](T_Iterator)(1d) with number
 
-  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden with mylist](T_Iterator)(0d) with number
   /**
    * We then concretely define what we want our recursive calculation to be as a generic function
    * between datasets. Typical.core.dataset is the core structure behind all of Typicals processing.
@@ -40,15 +43,13 @@ object Test {
       val initval = tax.typedInitVal
       val bal = src.fetchDouble[balance]
       val rate = src.fetchDouble[baserate]
-      //val t = bal + rate + tax
       val l = src.fetchSeq[mylist]
       println(s"Calling T iterator bal:$bal,rate:$rate,tax:$initval")
-
       /**
        * Use any operations defined for datasets with respective initial value types which include common algebraic operations
        */
-      val res2 = ((bal * rate) + tax) * bal
-      res2
+      ((bal * rate)) + tax
+
     }
 
     implicit val T_Iterator = Iterator.set[TaxBurden]
@@ -99,12 +100,17 @@ object Test {
    * we simply just stop calling calc after n/2 iterations on TaxBurden
    */
     val n = 10
-  //data[Double,balance with baserate with mylist with TaxBurden ](0d).calc[TaxBurden]
-  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist])( (a, c) => a.calc[Double,TaxBurden])
+  val ctx1 = myprovider.register[balance].register[baserate].register[TaxBurden]
+  val ctx2 = myprovider.register[balance].register[baserate].register[TaxBurden]
+
+  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx1))( (a, c) => a.calc[Double,TaxBurden])
+  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx2))( (a, c) => a.calc[Double,TaxBurden])
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
     println("Starting performance test")
-    println(s"Total Tax burden over $n years " + performanceTest.initialVal)
+    println(s"Total Tax burden over $n years P1 " + performanceTest.initialVal)
+    println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
+
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
