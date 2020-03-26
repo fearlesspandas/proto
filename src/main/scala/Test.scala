@@ -3,14 +3,15 @@ import impl._
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
 object Test {
+
   /**
-   * This class is an example of a simple custom simulation built to model tax burden over N years.
+   * This is an example of a simple custom simulation built to model tax burden over N years.
    * It requires two axioms as dependencies, taxable balance, and the base tax rate. These are
-   * effectively constants. We can start but extending the convenient axiom class and providing an
+   * effectively constants. We can start by extending the convenient axiom class and providing an
    * initial value
    *
    */
-  implicit object myprovider extends number
+
 
   class balance extends axiom[Double,balance](1000d)
 
@@ -25,7 +26,7 @@ object Test {
    * in non-recursive sims) the implicit value must be passed explicitly in the constructor.
    */
   //implicit val p:provider[_] = m3
-  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden with mylist](T_Iterator)(1d) with number
+  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden with mylist](T_Iterator)(1d)
 
   /**
    * We then concretely define what we want our recursive calculation to be as a generic function
@@ -95,22 +96,41 @@ object Test {
    * calc inherrently allows for some amount of statefullness using this mechanism. The sequence of calc calls that
    * are done to build up a sim essentially uniquely define that simulation.
    *
+   * Statefulness can be fully encapsulated using contexts, which are just implementations of providers.
+   * providers are the general type used to encapsulate data persistence. In this implementation it is
+   * just a thin wrapper around a hashmap. providers are functionally passed forward over iterations of the
+   * calc method. i.e. val a = data(ctx)[A].calc[A]; val b = data(ctx)[A].calc[A].calc[A] have different states
+   * if type A is updated during calculations (this is of most concern when dealing with recursive sims type theoretically)
+   *
+   * This statefulness can be seen in the below example, where both performanceTest and performanceTest2
+   * return the same result. If they shared state, i.e. if tax burden was iterated more for one sim run
+   * than the other, we would have differing results.
+   *
    * As a simple example we iterate our TaxBurden over some number n of years using a fold left.
    * If we wanted to bring our sim only to a state of only having calculated n/2 years, for example,
    * we simply just stop calling calc after n/2 iterations on TaxBurden
+   *
+   *
    */
     val n = 10
-  val ctx1 = myprovider.register[balance].register[baserate].register[TaxBurden]
-  val ctx2 = myprovider.register[balance].register[baserate].register[TaxBurden]
+  val ctx = myprovider.register[balance].register[baserate].register[TaxBurden]
+  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx))( (a, c) => a.calc[Double,TaxBurden])
+  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx))( (a, c) => a.calc[Double,TaxBurden])
 
-  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx1))( (a, c) => a.calc[Double,TaxBurden])
-  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](ctx2))( (a, c) => a.calc[Double,TaxBurden])
+
+  /**
+   * If we wanted them to share state we could simply continue iterating calc from the output state provider (dataset.dataprovider()) as our initial context.
+   * This is shown in the below example, where we can see our sim starts off contextually exactly where performancetest left off
+   */
+
+  lazy val performanceTest3 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist](performanceTest.dataprovider()))( (a, c) => a.calc[Double,TaxBurden])
+
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
     println("Starting performance test")
     println(s"Total Tax burden over $n years P1 " + performanceTest.initialVal)
     println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
-
+    println(s"Total Tax burden over $n years P3 " + performanceTest3.initialVal)
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }

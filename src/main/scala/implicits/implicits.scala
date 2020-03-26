@@ -21,7 +21,7 @@ object implicits {
     def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]
   }
 
-  implicit class calcable[A<:dataset[_] with InitialType[Double,_]](a:dataset[A])(implicit tagA:ClassTag[A],prov:provider[A]) extends CalcGeneric[A](a) //with CalcGeneric[Seq[_],A](a)
+  implicit class calcable[A<:dataset[_] with InitialType[Double,_]](a:dataset[A])(implicit tagA:ClassTag[A]) extends CalcGeneric[A](a) //with CalcGeneric[Seq[_],A](a)
 
 
   implicit class Fetcher[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){
