@@ -39,8 +39,8 @@ object Typeable {
   trait InitialType[A,+B<:dataset[_]]{
     type tpe = A
     val typedInitVal:A
-    def apply(initialVal: dataset[_] with InitialType[tpe,_]): dataset[B] with InitialType[tpe,B]
-    def applyFromData(initVal:tpe):dataset[B] with InitialType[tpe,B]
+    def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_]): dataset[B with U] with InitialType[tpe,_]
+    def applyFromData[U<:dataset[_] with InitialType[A,_]](initial: A): dataset[B with U] with InitialType[A,_]
   }
   trait dataset[+A <: dataset[_]]{
     val initialVal:Any

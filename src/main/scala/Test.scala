@@ -37,12 +37,13 @@ object Test {
        * Retrieve the data we need for our calculation using dataset.fetch
        */
       val tax = src.fetch[Double,TaxBurden]
-      val initval = tax.initialVal
+      val initval = tax.typedInitVal
       val bal = src.fetchDouble[balance]
       val rate = src.fetchDouble[baserate]
-      val t = bal + rate
+      //val t = bal + rate + tax
       val l = src.fetchSeq[mylist]
       println(s"Calling T iterator bal:$bal,rate:$rate,tax:$initval")
+
       /**
        * Use any operations defined for datasets with respective initial value types which include common algebraic operations
        */

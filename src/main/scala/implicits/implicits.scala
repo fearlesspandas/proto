@@ -32,18 +32,13 @@ object implicits {
   }
 
 
-  implicit class DataProvider[A<:dataset[_] with InitialType[Double,A]](a:dataset[A] with InitialType[Double,A])(implicit prov:provider[A],classTag: ClassTag[A]) {
+  implicit class AlgebraProvider[A<:dataset[_] with InitialType[Double,_]](a:dataset[A] with InitialType[Double,_])(implicit prov:provider[A],classTag: ClassTag[A]) {
     val instance = build[A]
     type tp = instance.tpe
-    def +[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A] with InitialType[Double,A] = a.applyFromData(u.typedInitVal + a.initialVal.asInstanceOf[Double])
-//      u.typedInitVal match {
-//        case d:Double => a.apply(a.initialVal.asInstanceOf[Double] + u.initialVal.asInstanceOf[Double])
-//        case _ => a
-//      }
-
-    //def -[U<:dataset[_] with InitialType[tp]](u:U):dataset[A] = a.apply(a.initialVal.asInstanceOf[Double] - u.initialVal.asInstanceOf[Double])
-    def *[U<:dataset[_] with InitialType[Double,U]](u:U):dataset[A] with InitialType[Double,A] = a.applyFromData(a.initialVal.asInstanceOf[Double] * u.initialVal.asInstanceOf[Double])
-    def /[U<:dataset[_] with InitialType[Double,U]](u:U):dataset[A] with InitialType[Double,A] = a.applyFromData(a.initialVal.asInstanceOf[Double] / u.initialVal.asInstanceOf[Double])
+    def +[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal + a.typedInitVal).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
+    def -[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal - a.typedInitVal).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
+    def *[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal * a.typedInitVal).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
+    def /[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal / a.typedInitVal).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
 
     //add any custom operations to dataset here
     //Could be algebraic operations outside of those defined for Double

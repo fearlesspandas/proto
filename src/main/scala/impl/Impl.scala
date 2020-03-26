@@ -10,12 +10,12 @@ package object impl {
   case class axiom[B,A<:ax[A] with InitialType[B,A]](override val typedInitVal: B,initializing:Boolean = true)(override implicit val tag:ClassTag[A],override implicit var prov:provider[Nothing] ) extends ax[A] with InitialType [B,A]{
     override val initialVal:Any = this.typedInitVal
     if (this.prov.getStateful(this.name).isEmpty) this.prov.put(this.name,this.initialVal)
-     def applyFromData(initial: B): dataset[A] with InitialType[B,A] = {
-      new axiom[B,A](initial,false).asInstanceOf[A]
+     def applyFromData[U<:dataset[_] with InitialType[B,_]](initial: B): dataset[A with U] with InitialType[B,_] = {
+      new axiom[B,A](initial,false).asInstanceOf[dataset[A with U] with InitialType[B,_]]
       //(new temp).asInstanceOf[A]
     }
 
-    override def apply(initval: dataset[_] with InitialType[tpe,_]): dataset[A] with InitialType[tpe,A] = this.applyFromData(initval.typedInitVal)
+   override def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_]): dataset[A with U] with InitialType[tpe,_] = this.applyFromData(initval.typedInitVal)
   }
 
 
@@ -25,23 +25,23 @@ package object impl {
     override var prov:provider[Nothing] = myprovider
     override val initialVal: Any = typedInitVal
     //def apply(): dataset[A] = new data().asInstanceOf[dataset[A]]
-    override def applyFromData(initVal: tpe): dataset[A] with InitialType[tpe, A] = null
+    override def applyFromData[U<:dataset[_] with InitialType[tpe,_]](initial: tpe): dataset[A with U] with InitialType[tpe,_] = null
 
-    override def apply(initialVal: dataset[_] with InitialType[tpe, _]): dataset[A] with InitialType[tpe, A] = null
+    override def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_]): dataset[A with U] with InitialType[tpe,_] = null
   }
 
-  class sim[initType,A<:dataset[_],B<:model[_,B] with InitialType[initType,B] with reset[initType,B]](override val typedInitVal: initType,initializing:Boolean = false)(implicit override val iterateFrom: dataset[A] => dataset[B],override val tag:ClassTag[B]) extends model[A,B] with InitialType[initType,B] with reset[initType,B]{
+  class sim[initType,A<:dataset[_],B<:model[_,B] with InitialType[initType,B] with reset[initType,B]](override val typedInitVal: initType)(implicit override val iterateFrom: dataset[A] => dataset[B],override val tag:ClassTag[B]) extends model[A,B] with InitialType[initType,B] with reset[initType,B]{
     override var prov:provider[Nothing] = myprovider
     override val initialVal:Any = this.typedInitVal
-     if (this.prov.getStateful(this.name).isEmpty || this.initializing)  this.prov.put(this.name,this.initialVal)
-     def applyFromData(initial: initType): dataset[B] with InitialType[initType,B]= {
-      new sim[initType,A,B](initial).asInstanceOf[B]
+     if (this.prov.getStateful(this.name).isEmpty)  this.prov.put(this.name,this.initialVal)
+     def applyFromData[U<:dataset[_] with InitialType[tpe,_]](initial: tpe): dataset[B with U] with InitialType[tpe,_] = {
+      new sim[initType,A,B](initial).asInstanceOf[dataset[B with U] with InitialType[tpe,_]]
     }
-    override def apply(initial: dataset[_] with InitialType[initType,_]): dataset[B] with InitialType[initType,B] = this.applyFromData(initial.typedInitVal)
+    override def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_]): dataset[B with U] with InitialType[tpe,_] = this.applyFromData(initval.typedInitVal)
     override def reset2(initial: initType): dataset[B] with reset[initType,B] = {
       //class temp extends sim[A,B](initial)
       this.prov.put(this.name,initial)
-      new sim[initType,A,B](initial,true).asInstanceOf[B with reset[initType,B]]
+      new sim[initType,A,B](initial).asInstanceOf[B with reset[initType,B]]
     }
     override def reset(initial: dataset[_] with InitialType[initType,_]): dataset[B] with reset[initType,B] = this.reset2(initial.typedInitVal)
   }
