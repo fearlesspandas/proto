@@ -15,6 +15,7 @@ object Test {
 
   class baserate extends axiom[Double,baserate](0.23) with number
 
+  class mylist extends axiom[Seq[Double],mylist](Seq(12d,3d,4d,5d)) with number
 
   /**
    * The TaxBurden class then defines a recursive sim. recSim is structured as recSim[output,dependencies] and in the case of a recursive
@@ -22,7 +23,7 @@ object Test {
    * in non-recursive sims) the implicit value must be passed explicitly in the constructor.
    */
 
-  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden](T_Iterator)(0d) with number
+  class TaxBurden extends recSim[Double,TaxBurden,balance with baserate with TaxBurden with mylist](T_Iterator)(0d) with number
   /**
    * We then concretely define what we want our recursive calculation to be as a generic function
    * between datasets. Typical.core.dataset is the core structure behind all of Typicals processing.
@@ -30,20 +31,24 @@ object Test {
    * IMPORTANT NOTE: If data is somehow accessed outside of the src dataset api, type safe processing
    * is not guarenteed.
    */
-  implicit val T_Iterator: dataset[balance with baserate with TaxBurden] => dataset[TaxBurden] =
-    (src: dataset[balance with baserate with TaxBurden]) => {
+  implicit val T_Iterator: dataset[balance with baserate with TaxBurden with mylist] => dataset[TaxBurden] =
+    (src: dataset[balance with baserate with mylist with TaxBurden]) => {
       /**
        * Retrieve the data we need for our calculation using dataset.fetch
        */
-      val tax = src.fetch[TaxBurden]
-      val bal = src.fetch[balance]
-      val rate = src.fetch[baserate]
+      val tax = src.fetchDouble[TaxBurden]
+      val initval = tax.initialVal
+      val bal = src.fetchDouble[balance]
+      val rate = src.fetchDouble[baserate]
       val t = bal + rate
+      val l = src.fetchSeq[mylist]
+      println(s"Calling T iterator bal:$bal,rate:$rate,tax:$initval")
       /**
        * Use any operations defined for datasets with respective initial value types which include common algebraic operations
        */
       val res2 = ((bal * rate) + tax) * bal
       val res = bal
+
       new TaxBurden().reset(res2)
     }
 
@@ -51,8 +56,8 @@ object Test {
    * Example of a non-recursive sim. Simply retrieves tax burden and copies it.
    */
   implicit val tester_map = (src:dataset[TaxBurden with balance]) => {
-    val tx = src.fetch[TaxBurden]
-    val bal = src.fetch[balance]
+    val tx = src.fetchDouble[TaxBurden]
+    val bal = src.fetchDouble[balance]
     new TaxTester().reset(tx)
   }
 
@@ -93,7 +98,8 @@ object Test {
    * we simply just stop calling calc after n/2 iterations on TaxBurden
    */
     val n = 10
-  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden]](data[Double,balance with baserate with TaxBurden](0d))((a, c) => a.calc[TaxBurden])
+  //data[Double,balance with baserate with mylist with TaxBurden ](0d).calc[TaxBurden]
+  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[Double,balance with baserate with TaxBurden with mylist](0d))((a, c) => a.calc[TaxBurden])
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
