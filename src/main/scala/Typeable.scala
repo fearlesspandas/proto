@@ -55,6 +55,10 @@ object Typeable {
     val name:String = classTag[A].runtimeClass.getSimpleName
   }
 
+  trait reset[initType,A<:model[_,A] with reset[initType,A] with InitialType[initType,_]] {
+    def reset(initial: dataset[_] with InitialType[initType,_]): dataset[A] with reset[initType,A]
+    def reset2(initial: initType): dataset[A] with reset[initType,A]
+  }
   trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {//with DataAccess[dependencies with output] with DataProduction[output] {
     //val initialVal: Any
     implicit val tag:ClassTag[output]

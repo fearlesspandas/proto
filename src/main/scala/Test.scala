@@ -14,8 +14,8 @@ object Test {
   class balance extends axiom[Double,balance](1000d) with number
 
   class baserate extends axiom[Double,baserate](0.23) with number
-
-  class mylist extends axiom[Seq[Double],mylist](Seq(12d,3d,4d,5d)) with number
+  implicit val t : dataset[balance] => dataset[mylist] = _ => new mylist()
+  class mylist extends sim[Seq[_],balance,mylist](Seq(12d,3d,4d,5d)) with number
 
   /**
    * The TaxBurden class then defines a recursive sim. recSim is structured as recSim[output,dependencies] and in the case of a recursive
@@ -31,12 +31,12 @@ object Test {
    * IMPORTANT NOTE: If data is somehow accessed outside of the src dataset api, type safe processing
    * is not guarenteed.
    */
-  implicit val T_Iterator: dataset[balance with baserate with TaxBurden with mylist] => dataset[TaxBurden] =
+  implicit val Iterator =
     (src: dataset[balance with baserate with mylist with TaxBurden]) => {
       /**
        * Retrieve the data we need for our calculation using dataset.fetch
        */
-      val tax = src.fetchDouble[TaxBurden]
+      val tax = src.fetch[Double,TaxBurden]
       val initval = tax.initialVal
       val bal = src.fetchDouble[balance]
       val rate = src.fetchDouble[baserate]
@@ -47,19 +47,19 @@ object Test {
        * Use any operations defined for datasets with respective initial value types which include common algebraic operations
        */
       val res2 = ((bal * rate) + tax) * bal
-      val res = bal
-
-      new TaxBurden().reset(res2)
+      res2
     }
 
+    implicit val T_Iterator = Iterator.set[TaxBurden]
   /**
    * Example of a non-recursive sim. Simply retrieves tax burden and copies it.
    */
   implicit val tester_map = (src:dataset[TaxBurden with balance]) => {
     val tx = src.fetchDouble[TaxBurden]
     val bal = src.fetchDouble[balance]
-    new TaxTester().reset(tx)
+    tx
   }
+  implicit val TaxTestermap = tester_map.set[TaxTester]
 
   /**
    * If our calculating function is in the implicit scope we don't have to declare it explicitly
@@ -99,8 +99,7 @@ object Test {
    */
     val n = 10
   //data[Double,balance with baserate with mylist with TaxBurden ](0d).calc[TaxBurden]
-  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[Double,balance with baserate with TaxBurden with mylist](0d))((a, c) => a.calc[TaxBurden])
-
+  lazy val performanceTest = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](data[balance with baserate with TaxBurden with mylist])( (a, c) => a.calc[Double,TaxBurden])
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
     println("Starting performance test")
