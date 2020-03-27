@@ -22,7 +22,7 @@ package object impl {
 
   case class data[+A<:dataset[_]](dprov:provider[_],override val typedInitVal: Any = null)(implicit tag:ClassTag[A]) extends dataset[A] with InitialType[Any,A]{
     override val name = ""
-    val instance = build[A]
+    //val instance = build[A]
     override val prov:provider[_] = dprov
     override def dataprovider():provider[_] = this.prov
     override val initialVal: Any = typedInitVal

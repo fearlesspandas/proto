@@ -13,8 +13,9 @@ object Test {
    */
 
 
+
     class A extends axiom[Double,A](5d)
-    class eps extends axiom[Double,eps](.0003)
+    class eps extends axiom[Double,eps](.000003)
 
     val X_f = (src:dataset[X with A]) =>{
       val x = src.fetchDouble[X]
@@ -22,24 +23,43 @@ object Test {
       ((x*x) + a)/(x*2)
       //x + x
     }
-  implicit val X_func = X_f.set[X]
+  val X_func = X_f.set[X]
 
   class X extends recSim[Double,X,X with A](X_func)(1d)
 
-  val converges = (src:dataset[ eps with X with A]) => {
-    val epsilon = src.fetchDouble[eps]
-    val x = src.fetchDouble[X]
-    val expected = scala.math.sqrt(src.fetchDouble[A].typedInitVal)
-    scala.math.abs(x.typedInitVal - expected) < epsilon.typedInitVal
+
+
+  trait Converges[dep<:dataset[_],U<:model[dep,U]]{
+    val f:(Double,model[dep,U]) => Int
   }
-  implicit val converges_f = converges.set[doesConverge]
-  class doesConverge extends sim[Boolean,eps with X with A,doesConverge](false)
+
+  //trait Convergent[A<:model[_,A]] extends Converges[A]
+
+  class doesConverge[self<:doesConverge[self,_,_] with model[_,self] with InitialType[Boolean,self] with reset[Boolean,self],dep<:dataset[self],U<:model[dep,U] with InitialType[Double,U]](
+    eps:Double,override val f:(Double,model[dep,U]) => Int,ctx:provider[_]
+   )(
+      implicit override val tag: ClassTag[self],tagu:ClassTag[U]//,ctx:provider[_]
+    ) extends recSim[Boolean,self,dep](
+    (
+        (src:dataset[dep]) => {
+            val res = (0 until f(eps,build[U])).foldLeft[dataset[dep with self with U]](
+              data[dep with self with U](ctx)
+            )( (a,c) => a.calcDouble[U])
+          val n0 = res.initialVal.asInstanceOf[Double]
+          val n1 = res.calcDouble[U].typedInitVal
+            scala.math.abs(n1 - n0) < eps
+        }
+    ).set[self]
+    )(false)(tag,ctx) with Converges[dep,U]
 
 
-    val n = 5
-  val ctx = myprovider.register[A].register[X].register[eps].register[doesConverge]
-  lazy val performanceTest = (0 until n).foldLeft[dataset[A with X with eps with doesConverge]](
-    data[A with X with eps with doesConverge](ctx)
+
+  implicit val ctx = myprovider.register[A].register[X].register[eps]
+  class XConverges extends doesConverge[XConverges,X with A with XConverges,X](0.00002,(_,_) => n,ctx)
+  val n = 1000
+
+  lazy val performanceTest = (0 until n).foldLeft[dataset[A with X with XConverges]](
+    data[A with X with XConverges](ctx)
     )( (a, c) => a.calc[Double,X])
 //  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](
 //    data[balance with baserate with TaxBurden with mylist](ctx)
@@ -51,10 +71,11 @@ object Test {
 //  )( (a, c) => a.calc[Double,TaxBurden])
 
   def main(args: Array[String]): Unit = {
+
     val t0 = System.nanoTime()
     println("Starting performance test")
     println(s"X after $n iterations " + performanceTest.initialVal)
-    println(s"Does X converge :" + performanceTest.calc[Boolean,doesConverge].initialVal)
+    println(s"Does X converge :" + performanceTest.calc[Boolean,XConverges].initialVal)
 //    println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
 //    println(s"Total Tax burden over $n years P3 " + performanceTest3.initialVal)
     val t1 = System.nanoTime()

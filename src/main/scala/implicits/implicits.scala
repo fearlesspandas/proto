@@ -9,7 +9,7 @@ object implicits {
     //def calc[U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U]
   }
   class CalcGeneric[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){ // f is not being resolved to anything but the identity function
-    val instanceA = build[A]
+    //val instanceA = build[A]
     val prov = a.dataprovider()
     def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
       val instance2 = build[U]
