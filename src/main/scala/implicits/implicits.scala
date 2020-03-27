@@ -42,7 +42,10 @@ object implicits {
     def -[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal - a.typedInitVal,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
     def *[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal * a.typedInitVal,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
     def /[U<:dataset[U] with InitialType[Double,U]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal / a.typedInitVal,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
-
+    def +(u:Double):dataset[A] with InitialType[Double,_] = a.applyFromData(u + a.typedInitVal,prov).asInstanceOf[dataset[A] with InitialType[Double,_]]
+    def -(u:Double):dataset[A] with InitialType[Double,_] = a.applyFromData(u - a.typedInitVal,prov).asInstanceOf[dataset[A] with InitialType[Double,_]]
+    def *(u:Double):dataset[A] with InitialType[Double,_] = a.applyFromData(u * a.typedInitVal,prov).asInstanceOf[dataset[A] with InitialType[Double,_]]
+    def /(u:Double):dataset[A] with InitialType[Double,_] = a.applyFromData(u / a.typedInitVal,prov).asInstanceOf[dataset[A] with InitialType[Double,_]]
     //add any custom operations to dataset here
     //Could be algebraic operations outside of those defined for Double
     //or any custom operations
@@ -54,6 +57,9 @@ object implicits {
   implicit class ToResetter[initType,A<:dataset[_]](f:dataset[A] => dataset[_] with InitialType[initType,_]){
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
   }
+//  implicit class ToResetter2[initType,A<:dataset[_],B <: dataset[_] with InitialType[initType,B]](f:dataset[A] => initType){
+//    def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
+//  }
 //  implicit class ToResetter2[initType,A<:dataset[_]](f:dataset[A] => initType){
 //    def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset2(f(d))
 //  }

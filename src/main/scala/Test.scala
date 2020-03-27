@@ -35,8 +35,7 @@ object Test {
    * IMPORTANT NOTE: If data is somehow accessed outside of the src dataset api, type safe processing
    * is not guarenteed.
    */
-  implicit val Iterator =
-    (src: dataset[balance with baserate with mylist with TaxBurden]) => {
+   val Iterator = (src: dataset[balance with baserate with mylist with TaxBurden]) => {
       /**
        * Retrieve the data we need for our calculation using dataset.fetch
        */
@@ -44,7 +43,13 @@ object Test {
       val initval = tax.typedInitVal
       val bal = src.fetchDouble[balance]
       val rate = src.fetchDouble[baserate]
+      /**
+       * an example of how to retrieve nonnumeric data. As dataset with an initial type of sequence
+       * we have different available operations to use in context
+       */
       val l = src.fetchSeq[mylist]
+
+
       println(s"Calling T iterator bal:$bal,rate:$rate,tax:$initval")
       /**
        * Use any operations defined for datasets with respective initial value types which include common algebraic operations
