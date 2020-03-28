@@ -53,14 +53,29 @@ object Test {
     )(false)(tag,ctx) with Converges[dep,U]
 
 
+  class sum[self<:sum[self,_,_] with model[_,self] with InitialType[Double,self] with reset[Double,self],dep<:dataset[target] with InitialType[_,_],target<:model[dep,target] with InitialType[Double,target]]
+  (
+    implicit tagself:ClassTag[self],tagtarget:ClassTag[target]
+                                                                                                                                                                                                              ) extends recSim[Double,self,dep with self with target](
+        (
+          (src:dataset[dep with self with target]) => {
+            val currsum = src.fetchDouble[self]
+            val nextval = src.fetchDouble[target]
+            currsum + nextval
+          }
+          ).set[self]
+        )(0d)
+
+
 
   implicit val ctx = myprovider.register[A].register[X].register[eps]
   class XConverges extends doesConverge[XConverges,X with A with XConverges,X](0.00002,(_,_) => n,ctx)
+  class XSum extends sum[XSum,X with A with XSum,X]
   val n = 1000
 
-  lazy val performanceTest = (0 until n).foldLeft[dataset[A with X with XConverges]](
-    data[A with X with XConverges](ctx)
-    )( (a, c) => a.calc[Double,X])
+  lazy val performanceTest = (0 until n).foldLeft[dataset[A with X with XConverges with XSum]](
+    data[A with X with XConverges with XSum](ctx)
+    )( (a, c) => a.calc[Double,X].calc[Double,XSum])
 //  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](
 //    data[balance with baserate with TaxBurden with mylist](ctx)
 //  )( (a, c) => a.calc[Double,TaxBurden])
@@ -74,8 +89,8 @@ object Test {
 
     val t0 = System.nanoTime()
     println("Starting performance test")
-    println(s"X after $n iterations " + performanceTest.initialVal)
-    println(s"Does X converge :" + performanceTest.calc[Boolean,XConverges].initialVal)
+    println(s"X after $n iterations " + performanceTest.calc[Double,X].initialVal)
+    println(s"Does X converge :" + performanceTest.calc[Double,XSum].initialVal)
 //    println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
 //    println(s"Total Tax burden over $n years P3 " + performanceTest3.initialVal)
     val t1 = System.nanoTime()
