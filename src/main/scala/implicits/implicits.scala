@@ -11,14 +11,23 @@ object implicits {
   class CalcGeneric[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){ // f is not being resolved to anything but the identity function
     //val instanceA = build[A]
     val prov = a.dataprovider()
-    def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
+    def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](ctx:provider[_] = this.prov)(implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
+      println("calling calc")
       val instance2 = build[U]
-      val res = instance2.iterateFrom(a).asInstanceOf[U]
-      instance2.applyFromData(res.typedInitVal,a.dataprovider().put(res.name,res.initialVal)).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+      val res = instance2.iterateFrom(a.clone(ctx)).asInstanceOf[U]
+      instance2.applyFromData(res.typedInitVal,ctx.put(res.name,res.initialVal)).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+
       //instance2.apply(res).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
     }
-    def calcDouble[U >: A <: model[A, U] with dataset[_] with InitialType[Double, U]](implicit tagu: ClassTag[U]) =  this.calc[Double,U]
-    def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]
+    def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]]()(implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
+      this.calc[B,U](this.prov)
+      //instance2.apply(res).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+    }
+    def calcIter[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](n:Int = 1)(implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
+      (0 until n).foldLeft(this.a)( (acc,curr) => this.calc[B,U](acc.dataprovider().put(acc.name,acc.initialVal))).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+    }
+    def calcDouble[U >: A <: model[A, U] with dataset[_] with InitialType[Double, U]](implicit tagu: ClassTag[U]) =  this.calc[Double,U]()
+    def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]()
   }
 
   implicit class calcable[A<:dataset[_] with InitialType[Double,_]](a:dataset[A])(implicit tagA:ClassTag[A]) extends CalcGeneric[A](a) //with CalcGeneric[Seq[_],A](a)

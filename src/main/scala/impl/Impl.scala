@@ -17,6 +17,8 @@ package object impl {
    override def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_],prov:provider[_]): dataset[A with U] with InitialType[tpe,_] = this.applyFromData(initval.typedInitVal,prov)
 
     override def dataprovider(): provider[_] = this.prov
+
+    override def clone(p: provider[_]): dataset[A] = this.applyFromData(this.typedInitVal,p)
   }
 
 
@@ -30,6 +32,8 @@ package object impl {
     override def applyFromData[U<:dataset[_] with InitialType[tpe,_]](initial: tpe,provi:provider[_]): dataset[A with U] with InitialType[tpe,_] = data[A with U](provi,initial)
 
     override def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_],provi:provider[_]): dataset[A with U] with InitialType[tpe,_] = this.applyFromData(initval.typedInitVal,provi)
+
+    override def clone(p: provider[_]): dataset[A] = this.applyFromData(this.typedInitVal,p)
   }
 
   class sim[initType,A<:dataset[_],B<:model[_,B] with InitialType[initType,B] with reset[initType,B]](override val typedInitVal: initType)(implicit override val iterateFrom: dataset[A] => dataset[B],override val tag:ClassTag[B],dprov:provider[_]) extends model[A,B] with InitialType[initType,B] with reset[initType,B]{
@@ -47,6 +51,8 @@ package object impl {
     override def reset(initial: dataset[_] with InitialType[initType,_]): dataset[B] with reset[initType,B] = this.reset2(initial.typedInitVal)
 
     override def dataprovider(): provider[_] = this.prov
+
+    override def clone(p: provider[_]): dataset[B] = this.applyFromData(this.typedInitVal,p)
   }
 
   class recSim[initType,B<:model[_,B] with InitialType[initType,B] with reset[initType,B],A<:dataset[B]](override val iterateFrom: dataset[A] => dataset[B] with reset[initType,B])(override val typedInitVal:initType)(implicit override val tag:ClassTag[B],prov:provider[_]) extends sim[initType,A,B](typedInitVal)(iterateFrom,tag,prov) with InitialType [initType,B] with reset[initType,B]

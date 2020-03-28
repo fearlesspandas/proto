@@ -63,6 +63,7 @@ object Typeable {
     val name:String
 
     def dataprovider():provider[_]
+    def clone(p:provider[_] = this.dataprovider()):dataset[A]
     //def setprov(prod:provider[_]) = this.prov = prod
   }
 
