@@ -2,6 +2,8 @@ import Typical.core.Typeable._
 
 import scala.reflect.ClassTag
 
+import Typical.implicits.implicits._
+
 package object impl {
 
   implicit object myprovider extends number
@@ -56,4 +58,37 @@ package object impl {
   }
 
   class recSim[initType,B<:model[_,B] with InitialType[initType,B] with reset[initType,B],A<:dataset[B]](override val iterateFrom: dataset[A] => dataset[B] with reset[initType,B])(override val typedInitVal:initType)(implicit override val tag:ClassTag[B],prov:provider[_]) extends sim[initType,A,B](typedInitVal)(iterateFrom,tag,prov) with InitialType [initType,B] with reset[initType,B]
+
+
+  class looksConvergent[self<:looksConvergent[self,_,_,_] with model[_,self] with InitialType[Boolean,self] with reset[Boolean,self],dep<:dataset[_],target<:model[dep,target] with InitialType[Double,target],targetsum<:sum[targetsum,dep,target]](
+                                                                                                                                                                                                                                                      eps:Double
+                                                                                                                                                                                                                                                    )(
+                                                                                                                                                                                                                                                      implicit override val tag: ClassTag[self],tagu:ClassTag[target],tagsum:ClassTag[targetsum]//,ctx:provider[_]
+                                                                                                                                                                                                                                                    ) extends recSim[Boolean,self,dep with self with target with targetsum](
+    (
+      (src:dataset[dep with self with target with targetsum]) => {
+        val wasConvergent = src.fetchBool[self]
+        val lastval = src.fetchDouble[targetsum]//.typedInitVal
+        val nextval = src.calcIter[Double,targetsum](1000).fetchDouble[targetsum]//.typedInitVal
+        wasConvergent.typedInitVal || scala.math.abs((lastval - nextval).typedInitVal) < eps
+      }
+      ).set[self]
+  )(false)
+
+
+  class sum[self<:sum[self,_,_] with model[_,self] with InitialType[Double,self] with reset[Double,self],dep<:dataset[_],target<:model[dep,target] with InitialType[Double,target]]
+  (
+    implicit val tagtarget:ClassTag[target],tagself:ClassTag[self],dprov:provider[_]
+  ) extends recSim[Double,self,dep with self with target](
+    (
+      (src:dataset[dep with self with target]) => {
+        val currsum = src.fetchDouble[self]
+        val nextval = src.fetchDouble[target]
+        currsum + nextval
+      }
+      ).set[self]
+  )(0d)(tagself,dprov)
+
+
+
 }

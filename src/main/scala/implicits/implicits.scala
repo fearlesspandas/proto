@@ -63,6 +63,8 @@ object implicits {
     def append[U <: dataset[_] with InitialType[Double, U]](u: U): dataset[A] = b.applyFromData(b.typedInitVal :+ u.typedInitVal,prov)
   }
   implicit class ToResetter[initType,A<:dataset[_]](f:dataset[A] => dataset[_] with InitialType[initType,_]){
+    //val instanceA = build[A]
+    //val prov = instanceA.dataprovider()
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
   }
 //  implicit class ToResetter2[initType,A<:dataset[_],B <: dataset[_] with InitialType[initType,B]](f:dataset[A] => initType){

@@ -12,8 +12,6 @@ object Test {
    *
    */
 
-
-
     class A extends axiom[Double,A](5d)
     class eps extends axiom[Double,eps](.000003)
 
@@ -22,8 +20,6 @@ object Test {
       val x = src.fetchDouble[X]
       val a = src.fetchDouble[A]
       ((x*x) + a)/(x*2)
-      //x + x
-      //x + x
     }
   val X_func = X_f.set[X]
 
@@ -37,45 +33,20 @@ object Test {
 
   //trait Convergent[A<:model[_,A]] extends Converges[A]
 
-  class looksConvergent[self<:looksConvergent[self,_,_,_] with model[_,self] with InitialType[Boolean,self] with reset[Boolean,self],dep<:dataset[_],target<:model[dep,target] with InitialType[Double,target],targetsum<:sum[targetsum,dep,target]](
-      eps:Double
-                                                                                                                                                                                                                )(
-      implicit override val tag: ClassTag[self],tagu:ClassTag[target],tagsum:ClassTag[targetsum]//,ctx:provider[_]
-    ) extends recSim[Boolean,self,dep with self with target with targetsum](
-    (
-        (src:dataset[dep with self with target with targetsum]) => {
-           val wasConvergent = src.fetchBool[self]
-            val lastval = src.fetchDouble[targetsum]//.typedInitVal
-            val nextval = src.calcIter[Double,targetsum](1000).fetchDouble[targetsum]//.typedInitVal
-            wasConvergent.typedInitVal || scala.math.abs((lastval - nextval).typedInitVal) < eps
-        }
-    ).set[self]
-    )(false)
-
-
-  class sum[self<:sum[self,_,_] with model[_,self] with InitialType[Double,self] with reset[Double,self],dep<:dataset[_],target<:model[dep,target] with InitialType[Double,target]]
-  (
-    implicit val tagtarget:ClassTag[target],tagself:ClassTag[self],dprov:provider[_]
-                                                                                                                                                                                                              ) extends recSim[Double,self,dep with self with target](
-        (
-          (src:dataset[dep with self with target]) => {
-            val currsum = src.fetchDouble[self]
-            val nextval = src.fetchDouble[target]
-            currsum + nextval
-          }
-          ).set[self]
-        )(0d)(tagself,dprov)
-
-
 
   implicit val ctx = myprovider.register[A].register[X].register[eps].register[XConverges].register[XSum]
   class XConverges extends looksConvergent[XConverges,A with X,X,XSum](2.5d)
   class XSum extends sum[XSum,X with A,X]
-  val k = 100000
+  val k = 10000
 
-  lazy val performanceTest = (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])
+  //lazy val performanceTest = (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])
+  //lazy val performanceTest2 = (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])
+  //lazy val performanceTest3 = (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])
+  //lazy val performanceTest4 = (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])
+  lazy val s = Seq[dataset[_]]((0 to 1000).map(_ => (0 until k).foldLeft[dataset[A with X with XConverges with XSum]](data[A with X with XConverges with XSum](ctx))( (a,c) => a.calc[Double,X].calc[Double,XSum])):_*)
 
-//  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](
+
+  //  lazy val performanceTest2 = (0 until n).foldLeft[dataset[balance with baserate with TaxBurden with mylist]](
 //    data[balance with baserate with TaxBurden with mylist](ctx)
 //  )( (a, c) => a.calc[Double,TaxBurden])
 //
@@ -88,9 +59,10 @@ object Test {
     val t = k + 1
     val t0 = System.nanoTime()
     println("Starting performance test")
-    println(s"X after $k iterations " + performanceTest.fetchDouble[X].initialVal)
+    println(s.map(d => d.initialVal))
+   // println(s"X after $k iterations " + performanceTest.fetchDouble[X].initialVal)
     //println(s"Sum of X :" + performanceTest.fetchDouble[XSum].initialVal)
-    println(s"Does X converge ? " + performanceTest.calc[Boolean,XConverges].initialVal)
+    //println(s"Does X converge ? " + performanceTest.calc[Boolean,XConverges].initialVal)
 
     //    println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
 //    println(s"Total Tax burden over $n years P3 " + performanceTest3.initialVal)
