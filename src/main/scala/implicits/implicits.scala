@@ -12,7 +12,7 @@ object implicits {
     //val instanceA = build[A]
     val prov = a.dataprovider()
     def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](ctx:provider[_] = this.prov)(implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
-      println("calling calc")
+      //println("calling calc")
       val instance2 = build[U]
       val res = instance2.iterateFrom(a.clone(ctx)).asInstanceOf[U]
       instance2.applyFromData(res.typedInitVal,ctx.put(res.name,res.initialVal)).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
@@ -46,8 +46,6 @@ object implicits {
 
 
   implicit class AlgebraProvider[A<:dataset[_] with InitialType[Double,_]](a:dataset[A] with InitialType[Double,_])(implicit prov:provider[_],classTag: ClassTag[A]) {
-    val instance = build[A]
-    type tp = instance.tpe
     def +[U<:dataset[_] with InitialType[Double,_]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal + a.typedInitVal,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
     def -[U<:dataset[_] with InitialType[Double,_]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](a.typedInitVal - u.typedInitVal ,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
     def *[U<:dataset[_] with InitialType[Double,_]](u:U):dataset[A with U] with InitialType[Double,_] = a.applyFromData[U](u.typedInitVal * a.typedInitVal,prov).asInstanceOf[dataset[A with U] with InitialType[Double,_]]
