@@ -73,7 +73,7 @@ object implicits {
   implicit class ToResetter2[initType,A<:dataset[_]](f:dataset[A] => initType){
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset2(f(d))
   }
-  implicit class MapIterator(p:provider[_]){
+  implicit class ContextBuilder(p:provider[_]){
     def register[A<:dataset[_] with InitialType[_,_]](implicit tag:ClassTag[A]):provider[_] = {
       val instA = build[A]
       p.put(instA.name,instA.initialVal)
