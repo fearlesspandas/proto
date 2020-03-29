@@ -3,63 +3,73 @@ import impl._
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
 object Test {
+  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges]
 
-    class A extends axiom[Double,A](5d)
-    //example of a recursive numeric sequence that enforces convergence
-    val X_f = (src:dataset[X with A with XConverges with XSum]) =>{
-      //println("x func")
+  /**
+   * Here we use Typical to build a simple prover of Cauchy convergence https://en.wikipedia.org/wiki/Cauchy%27s_convergence_test
+   * It takes an epsilon double and an integer for setting max iterations of verifiability.
+   *
+   *
+   * Begin by setting any contextual variables as axioms.
+   */
+  class A extends axiom[Double,A](5d)
+
+  /**
+   * Define our sequences with our classes that encapsulate them
+   */
+  val X_f = (src:dataset[X with A]) =>{
       val x = src.fetchDouble[X]
       val a = src.fetchDouble[A]
-      val converges = src.calc[Boolean,XConverges]
-      //val res: dataset[X] with InitialType[Double, X] = if (!converges.typedInitVal) ((x*x) + a)/(x*2) else x
-      val res: dataset[X] with InitialType[Double, X] = converges.typedInitVal match {
-        //case true =>  x
-        case _ => (x/2).asInstanceOf[dataset[X] with InitialType[Double,X]]//(((x*x) + a)/(x*2))
-      }
-      res
-
-      //x + a
+      x/2
     }
   val X_func = X_f.set[X]
-
-  val Y_f = (src:dataset[Y with A]) =>{
-    //println("x func")
+  class X extends recSim[Double,X,X with A](X_func)(1d)
+  val Y_f = (src:dataset[Y with A]) => {
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
-    //val res: dataset[X] with InitialType[Double, X] = if (!converges.typedInitVal) ((x*x) + a)/(x*2) else x
-    //case true =>  x
-    (((x*x) + a)/(x*2))
-
-
-    //x + a
+    ((x*x) + a)/(x*2)
   }
   val Y_func = Y_f.set[Y]
-
   class Y extends recSim[Double,Y,Y with A](Y_func)(1d)
 
-  class X extends recSim[Double,X,X with A with XConverges with XSum](X_func)(1d)
-  implicit val ctx = myprovider.register[A].register[X].register[XConverges].register[XSum].register[Y].register[YConverges]
-  class XConverges extends SeqLooksConvergent[XConverges,A with X with XConverges with XSum,X,XSum](0.000002d,10)
+  /**
+   * We then define our convergence provers. YConverges proves type Y with dependencies A with Y varies at most by eps over the next N iterations
+   * In this particular example we expect Y to converge to sqrt(A)
+   */
   class YConverges extends LooksConvergent[YConverges,A with Y,Y](.02d,10)
-  class XSum extends sum[XSum,X with A with XConverges with XSum,X]
-  val k = 10
-  lazy val s = Seq((0 until 1).map(_ => (0 until k).foldLeft[dataset[A with X with XConverges with XSum with Y with YConverges]](data[A with X with XConverges with XSum with Y with YConverges](ctx))( (a,c) => a.calc[Double,Y].calc[Double,X])):_*)//.par
+
+  /**
+   * Sum type of X with dependencies X with A. Note, sum is a thin wrapper around recursive sim
+   * and must be iterated to be updated. Meaning for example the values for
+   * dataset[A with B].calc[A].calc[A].calc[sum[A]] != dataset[A].calc[A].calc[sum[A]].calc[A].calc[sum[A]]
+   * LooksConvergent types will iterate any target type you can pass them including sum,
+   * which gives us all we need to test cauchy convergence, given the above definition for LooksConvergent
+   */
+  class XSum extends sum[XSum,X with A,X]
+
+  /**
+   * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
+   * included in their own dependencies
+   */
+  class XSumConverges extends LooksConvergent[XSumConverges,A with X  with XSum,XSum](.000002d,10)
+
+  /**
+   * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for experimentation with parrallel processing of sims.
+   *
+   * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
+   * Modifying these values will reveal how X converges very slowly compared to Y
+   */
+  val k = 50                  //number of iterations per sim
+  val m = 1                   //number of sims we want to run
+  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft[dataset[A with X  with XSum with Y with YConverges with XSumConverges]](data[A with X  with XSum with Y with YConverges with XSumConverges](ctx))( (a,c) => a.calc[Double,Y].calc[Double,X])):_*)//.par
 
   def main(args: Array[String]): Unit = {
-    val t = k + 1
     val t0 = System.nanoTime()
     println(s"Starting Test with $k iterations")
-    //println(s.map(d => d.initialVal))
-    println(s"Xconverges:${s.map(d => d.calc[Boolean,XConverges].initialVal)}")
+    println(s"X Is Cauchy:${s.map(d => d.calc[Boolean,XSumConverges].initialVal)}")
     println(s"YConverges:${s.map(d => d.calc[Boolean,YConverges].initialVal)}")
     println(s"X:${s.map(d => d.fetchDouble[X].initialVal)}")
     println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
-   // println(s"X after $k iterations " + performanceTest.fetchDouble[X].initialVal)
-    //println(s"Sum of X :" + performanceTest.fetchDouble[XSum].initialVal)
-    //println(s"Does X converge ? " + performanceTest.calc[Boolean,XConverges].initialVal)
-
-    //    println(s"Total Tax burden over $n years P2 " + performanceTest2.initialVal)
-//    println(s"Total Tax burden over $n years P3 " + performanceTest3.initialVal)
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }

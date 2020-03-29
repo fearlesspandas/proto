@@ -64,16 +64,8 @@ package object impl {
                                                                                                                                                                                                                                                       eps:Double,N:Int
                                                                                                                                                                                                                                                     )(
                                                                                                                                                                                                                                                       implicit override val tag: ClassTag[self],tagu:ClassTag[target],tagsum:ClassTag[targetsum]//,ctx:provider[_]
-                                                                                                                                                                                                                                                    ) extends recSim[Boolean,self,dep with self with target with targetsum](
-    (
-      (src:dataset[dep with self with target with targetsum]) => {
-        val wasConvergent = src.fetchBool[self]
-        val lastval = src.fetchDouble[targetsum]//.typedInitVal
-        val nextval = src.calcIter[Double,targetsum](N).fetchDouble[targetsum]//.typedInitVal
-        wasConvergent.typedInitVal || scala.math.abs((lastval - nextval).typedInitVal) < eps
-      }
-      ).set[self]
-  )(false)
+                                                                                                                                                                                                                                                    ) extends LooksConvergent[self,dep with targetsum with target,targetsum](eps,N)
+
   class LooksConvergent[self<:LooksConvergent[self,_,_] with model[_,self] with InitialType[Boolean,self] with reset[Boolean,self],dep<:dataset[_],target<:model[dep,target] with InitialType[Double,target]](
                                                                                                                                                                                                                                                       eps:Double,N:Int
                                                                                                                                                                                                                                                     )(
@@ -82,8 +74,8 @@ package object impl {
     (
       (src:dataset[dep with self with target]) => {
         val wasConvergent = src.fetchBool[self]
-        val lastval = src.fetchDouble[target]//.typedInitVal
-        val nextval = src.calcIter[Double,target](N).fetchDouble[target]//.typedInitVal
+        val lastval = src.fetchDouble[target]
+        val nextval = src.calcIter[Double,target](N).fetchDouble[target]
         wasConvergent.typedInitVal || scala.math.abs((lastval - nextval).typedInitVal) < eps
       }
       ).set[self]
