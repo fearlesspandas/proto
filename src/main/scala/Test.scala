@@ -31,7 +31,6 @@ object Test {
   }
   val Y_func = Y_f.set[Y]
   class Y extends recSim[Double,Y,Y with A](Y_func)(1d)
-
   /**
    * We then define our convergence provers. YConverges proves type Y with dependencies A with Y varies at most by eps over the next N iterations
    * In this particular example we expect Y to converge to sqrt(A)
@@ -46,13 +45,11 @@ object Test {
    * which gives us all we need to test cauchy convergence, given the above definition for LooksConvergent
    */
   class XSum extends sum[XSum,X with A,X]
-
   /**
    * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
    * included in their own dependencies
    */
   class XSumConverges extends LooksConvergent[XSumConverges,A with X  with XSum,XSum](.000002d,10)
-
   /**
    * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for experimentation with parrallel processing of sims.
    *
