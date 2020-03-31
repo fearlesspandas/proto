@@ -1,7 +1,7 @@
 package Orders
 
 import Typical.core.Typeable._
-import impl._
+import Typical.impl._
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
 //import Typical.implicits.implicits._

@@ -1,5 +1,5 @@
 import Typical.core.Typeable._
-import impl._
+import Typical.impl._
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
 object Test {
@@ -17,6 +17,7 @@ object Test {
    */
   val X_f = (src:dataset[X]) =>{
       val x = src.fetchDouble[X]
+      //this calculation is typechecked based on the initial type of X
       x/2
     }
   val X_func = X_f.set[X]
@@ -25,6 +26,7 @@ object Test {
     //in the future these calls to fetch src can hopefully be made implicit
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
+    //all operations are typechecked to ensure all datasets have correct initial types
     ((x*x) + a)/(x*2)
   }
   val Y_func = Y_f.set[Y]

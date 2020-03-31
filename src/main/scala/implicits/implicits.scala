@@ -1,7 +1,7 @@
 package Typical.implicits
 
 import Typical.core.Typeable.{InitialType, _}
-import impl.bind
+import Typical.impl.bind
 
 import scala.reflect.ClassTag
 

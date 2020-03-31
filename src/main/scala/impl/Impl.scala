@@ -1,3 +1,4 @@
+package Typical
 import Typical.core.Typeable._
 
 import scala.reflect.ClassTag
