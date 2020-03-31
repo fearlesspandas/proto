@@ -1,12 +1,8 @@
 package Typical.core;
 
 import scala.reflect.{ClassTag, classTag}
-import scala.reflect.runtime.{universe => ru}
-import ru._
 
-import scala.collection.mutable
 import scala.collection.immutable.HashMap
-import Typical.implicits.implicits._
 
 object Typeable {
 
