@@ -58,7 +58,8 @@ object implicits {
     val prov = a.dataprovider()
     def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](ctx: provider[_])(implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = {
       val x1 = calcGeneral[B,dep with other with M with T,U](a.asInstanceOf[dataset[M with dep with other with T]])(ctx)
-      calcGeneral[initType,dep with M with T with U, T](x1)(x1.prov).asInstanceOf[dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U]]
+      calcGeneral[initType,dep with M with T with U, T](x1)(x1.prov)
+        .asInstanceOf[dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U]]
     }
     def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calcWithBinding[B,U](this.prov)
   }

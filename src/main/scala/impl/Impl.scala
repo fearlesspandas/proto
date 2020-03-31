@@ -41,6 +41,7 @@ package object impl {
     override def apply[U <: dataset[_] with InitialType[tpe, _]](initval: dataset[U] with InitialType[tpe, _], provi: provider[_]): dataset[A with U] with InitialType[tpe, _] = this.applyFromData(initval.typedInitVal, provi)
 
     override def clone(p: provider[_]): dataset[A] = this.applyFromData(this.typedInitVal, p)
+    def dataset:dataset[A] = this.asInstanceOf[dataset[A]]
   }
 
   class sim[
@@ -59,7 +60,6 @@ package object impl {
     }
     override def apply[U <: dataset[_] with InitialType[tpe, _]](initval: dataset[U] with InitialType[tpe, _], p: provider[_]): dataset[B with U] with InitialType[tpe, _] = this.applyFromData(initval.typedInitVal, p)
     override def reset2(initial: initType): dataset[B] with reset[initType, B] = {
-      //class temp extends sim[A,B](initial)
       implicit val newprov = this.prov.put(this.name, initial)
       new sim[initType, A, B](initial)(iterateFrom, tag, this.prov.put(this.name, initial)).asInstanceOf[B with reset[initType, B]]
     }

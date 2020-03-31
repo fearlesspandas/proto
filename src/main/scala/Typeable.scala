@@ -22,15 +22,11 @@ object Typeable {
       class temp(override val statefulmap:Map[String,Any]) extends provider[U]
       new temp(this.statefulmap.updated(s,a))
     }
-//    def put(s: String, a: Any): Unit
-//    def getStateful(s:String):Option[Any]
-//    def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as
     def get[A](implicit tag:ClassTag[A]):Option[Any] = {
       val name = buildName[A]
       val ret = this.statefulmap.get(name)
       ret
     }
-     def getStateful(s:String):Option[Any] = this.statefulmap.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
      def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
       val res = this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
       res
@@ -62,13 +58,11 @@ object Typeable {
     def reset2(initial: initType): dataset[A] with reset[initType,A]
   }
   trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {
-    //val initialVal: Any
     implicit val tag:ClassTag[output]
     val name:String = classTag[output].runtimeClass.getSimpleName
     implicit val iterateFrom:dataset[dependencies] => dataset[output]
   }
 
-  //concretely define algebraic operators
   trait number extends provider[number] {
     val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
     override val statefulmap = HashMap[String,Any]()

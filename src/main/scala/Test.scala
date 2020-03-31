@@ -22,6 +22,7 @@ object Test {
   val X_func = X_f.set[X]
   class X extends recSim[Double,X,X](X_func)(1d)
   val Y_f = (src:dataset[Y with A]) => {
+    //in the future these calls to fetch src can hopefully be made implicit
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
     ((x*x) + a)/(x*2)
@@ -29,20 +30,30 @@ object Test {
   val Y_func = Y_f.set[Y]
   class Y extends recSim[Double,Y,Y with A](Y_func)(1d)
   /**
-   * We then define our convergence provers. YConverges proves type Y with dependencies A with Y varies at most by eps over the next N iterations
+   * We then define our convergence provers. YConverges if true proves type
+   * Y with dependencies A with Y varies at most by eps over the next N iterations
    * In this particular example we expect Y to converge to sqrt(A)
    */
   class YConverges extends LooksConvergent[YConverges,A with Y,Y](.02d,10)
 
   /**
-   * Sum type of X with dependencies X. Note, sum is a thin wrapper around recursive sim
-   * and must be iterated to be updated. Meaning for example the values for
-   * dataset[A with B].calc[A].calc[A].calc[sum[A]] != dataset[A].calc[A].calc[sum[A]].calc[A].calc[sum[A]]
-   * LooksConvergent types will iterate any target type you can pass them including sum,
-   * which gives us all we need to test cauchy convergence, given the above definition for LooksConvergent
+   * Next we build sum types of X with dependencies X. Note, sum is a thin wrapper around bind which is itself a thin
+   * wrapper around a recursive sim and must be iterated by calc to be updated. Meaning by default the values for
+   * dataset[A with B].calc[A].calc[A].calc[sum[A]] != dataset[A with B].calc[A].calc[sum[A]].calc[A].calc[sum[A]]
+   *
+   * LooksConvergent types, another thin wrapper around recursive sim, will iterate any target type you can pass them ,including sum, within
+   * their calculation function. This is all we need for a naive test of Cauchy convergence, given the above definition for LooksConvergent.
+   *
+   * We also illustrate how to conveniently trigger updates to sums value automatically using bindings. This feature
+   * currently only supports bindings in limited context, but serves as a good example to the motivation. Note
+   * that sums are themselves of type bind.
+   *
    */
   class XSum extends sum[XSum,X,X]
   class othersum extends sum[othersum,X,X]
+  /**
+   * another example with more dependencies on the target type
+   */
   class ysum extends sum[ysum,Y with A, Y]
   /**
    * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
@@ -54,16 +65,27 @@ object Test {
    */
   implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum]
   /**
-   * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for experimentation with parrallel processing of sims.
+   * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for easy experimentation with parrallel processing of sims.
    *
    * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
    * Modifying k and m values will reveal how X converges very slowly compared to Y
    */
   val k = 100              //number of iterations per sim
   val m = 1                   //number of sims we want to run
-  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft[dataset[A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum]](data[A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum](ctx))( (a,_) => a.calcWithBinding[Double,X].calcWithBinding[Double,X].calc[Double,othersum])):_*)//.par
-  val test: dataset[X with XSum with Y] with InitialType[_,_] = data[X with XSum with Y](ctx)
-  val t: dataset[XSum with X with Y] with InitialType[Double, XSum with X with Y] = test.calc[Double,X]//.calc[Double,Y]
+  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft(
+    data[
+      A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum
+    ](ctx).dataset
+  )( (a,_) => a.calcWithBinding[Double,X].calc[Double,Y].calc[Double,othersum])):_*)//.par
+
+  /**
+   * Here we are using calcWithBinding to calculate X. That means if there is a binding in the dataset
+   * and it can be applied to X, then the full binded calculation reduces to a call of calc on X with a following call on
+   * the bind type. In our example, when the code below is executed, you will see the final result of XSum and othersum
+   * being equal, in spite of the fact that we never directly called calc on XSum.
+   *
+   */
+
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
     println(s"Starting Test with $k iterations")
