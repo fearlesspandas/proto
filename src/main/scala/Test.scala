@@ -2,101 +2,119 @@ import Typical.core.Typeable._
 import Typical.impl._
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
+import org.apache.spark.sql._
 object Test {
 
   /**
-   * Here we use Typical to build a simple prover of Cauchy convergence https://en.wikipedia.org/wiki/Cauchy%27s_convergence_test
-   * It takes an epsilon double and an integer for setting max iterations of verifiability.
+   * In this example we illustrate how Typical can be used to easily encapsulate transormations
+   * on Spark dataframes in a typesafe way. We define our dataframe transormation within
+   * a Typical calculation, including the columns relevent to the calculation as dependencies.
+   * As with all calculations in the Typical grammar, this allows us to know at compile time
+   * whether our total transformations structure has all the relevent dependencies at every step
+   * from start to finish.
+   *
+   * Important Note!! In this example, joins cannot be used arbitrarily
+   * within calculations, but instead must be encapsulated in a type, as a dependency to be safely
+   * used. This is because wrapping the desired join into a type is the only way to prove
+   * at compile time, that in any context, our dataframes which get joined contain the relevent
+   * join column. Towards the end of this example we will show how to do this.
    *
    *
-   * Begin by setting any contextual variables as axioms.
+   *
+   * We start by retrieving our spark session
    */
-  class A extends axiom[Double,A](5d)
-  /**
-   * Define our sequences with our classes that encapsulate them
-   */
-  val X_f = (src:dataset[X]) =>{
-      val x = src.fetchDouble[X]
-      //this calculation is typechecked based on the initial type of X
-      x/2
-    }
-  val X_func = X_f.set[X]
-  class X extends recSim[Double,X,X](X_func)(1d)
-  val Y_f = (src:dataset[Y with A]) => {
-    //in the future these calls to fetch src can hopefully be made implicit
-    val x = src.fetchDouble[Y]
-    val a = src.fetchDouble[A]
-    //all operations are typechecked to ensure all datasets have correct initial types
-    ((x*x) + a)/(x*2)
-  }
-  val Y_func = Y_f.set[Y]
-  class Y extends recSim[Double,Y,Y with A](Y_func)(1d)
-  /**
-   * We then define our convergence provers. YConverges if true proves type
-   * Y with dependencies A with Y varies at most by eps over the next N iterations
-   * In this particular example we expect Y to converge to sqrt(A)
-   */
-  class YConverges extends LooksConvergent[YConverges,A with Y,Y](.02d,10)
+  val spark = SparkSession.builder().config("spark.master","local").getOrCreate()
+  import spark.implicits._
 
   /**
-   * Next we build sum types of X with dependencies X. Note, sum is a thin wrapper around bind which is itself a thin
-   * wrapper around a recursive sim and must be iterated by calc to be updated. Meaning by default the values for
-   * dataset[A with B].calc[A].calc[A].calc[sum[A]] != dataset[A with B].calc[A].calc[sum[A]].calc[A].calc[sum[A]]
-   *
-   * LooksConvergent types, another thin wrapper around recursive sim, will iterate any target type you can pass them ,including sum, within
-   * their calculation function. This is all we need for a naive test of Cauchy convergence, given the above definition for LooksConvergent.
-   *
-   * We also illustrate how to conveniently trigger updates to sums value automatically using bindings. This feature
-   * currently only supports bindings in limited context, but serves as a good example to the motivation. Note
-   * that sums are themselves of type bind.
-   *
+   * We will need a source dataframe as an initial value of our calculation
    */
-  class XSum extends sum[XSum,X,X]
-  class othersum extends sum[othersum,X,X]
+  val srcdf = Seq((1,2)).toDF("col1","col2")
+
   /**
-   * another example with more dependencies on the target type
+   * We then match our axioms to our columns
    */
-  class ysum extends sum[ysum,Y with A, Y]
+  case class col1() extends axiom[Column,col1]( srcdf.col("col1"))
+  case class col2() extends axiom[Column,col2]( srcdf.col("col2"))
+
   /**
-   * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
-   * included in their own dependencies
+   * Define our dataframe transformation inside our Typical calculation function
+   * with dependencies DF with col1 with col2
    */
-  class XSumConverges extends LooksConvergent[XSumConverges, X  with XSum,XSum](.000002d,10)
+  val DF_iter1 = ((src:dataset[DF with col1 with col2]) => {
+    //access our data in a typesafe way from our dependency set
+    val df = src.fetch[DataFrame,DF].typedInitVal
+    val one = src.fetch[Column,col1]
+    val two = src.fetch[Column,col2]
+    //here we can use spark as we normally would as we have already
+    //retrieved our values in a typesafe way
+    //The only operation not guarenteed to be typesafe
+    //would be join, as we did not include a join type
+    //as a dependency
+    df.withColumn(two.name,df.col(one.name) + df.col(two.name))
+  })
+  val DF_iter2 = ((src:dataset[DF2 with col1 with col2]) => {
+    //access our data in a typesafe way from our dependency set
+    val df = src.fetch[DataFrame,DF2].typedInitVal
+    val one = src.fetch[Column,col1]
+    val two = src.fetch[Column,col2]
+    //here we can use spark as we normally would as we have already
+    //retrieved our values in a typesafe way
+    //The only operation not guarenteed to be typesafe
+    //would be join, as we did not include a join type
+    //as a dependency
+    df.withColumn(two.name,df.col(one.name) + df.col(two.name))
+  })
+
+  val df1_func = DF_iter1.set[DF]
+  val df2_func = DF_iter2.set[DF2]
+
+  /**
+   * Note: In the above example calculation we use the columns from our src df with names
+   * matching our dependencies, rather than using the retrieved columns themselves in
+   * the new column definition. The reason for this is,as implemented, the actual values for our
+   * column dependencies in Typicals statestore are never updated. However, by using the
+   * names of our dependencies to retrieve the relevent columns in DF, as implemented it
+   * still solves the problem of typesafe data access for a dataframe transformation
+   * so long as src is the only data used in the result of our calculations.
+   *
+   */
+
+  /**
+   * Define our dataframe type and bind our dependencies to it (it's a recursive sim
+   * so itself needs to be included as a dependency)
+   */
+  class DF extends recSim[DataFrame,DF,col1 with col2 with DF](df1_func)(srcdf)
+  class DF2 extends recSim[DataFrame,DF2,col1 with col2 with DF2](df2_func)(srcdf)
+
+  /**
+   * Example of how to build a join type using Typical.impl.join
+   * on DF and DF2 on col1. To be used directly in a transformation
+   * we would include this type as a dependency.
+   *
+   */
+  class jointest extends join[jointest,col1,DF,DF2]
   /**
    * Prepare the context provider with the initial values
    */
-  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum]
-  /**
-   * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for easy experimentation with parrallel processing of sims.
-   *
-   * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
-   * Modifying k and m values will reveal how X converges very slowly compared to Y
-   */
-  val k = 100              //number of iterations per sim
-  val m = 1                   //number of sims we want to run
-  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft(
-    data[
-      A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum
-    ](ctx).dataset
-  )( (a,_) => a.calcWithBinding[Double,X].calc[Double,Y].calc[Double,othersum])):_*)//.par
+  implicit val ctx = myprovider
+    .register[col1]
+    .register[col2]
+    .register[DF]
+    .register[DF2]
 
   /**
-   * Here we are using calcWithBinding to calculate X. That means if there is a binding in the dataset
-   * and it can be applied to X, then the full binded calculation reduces to a call of calc on X with a following call on
-   * the bind type. In our example, when the code below is executed, you will see the final result of XSum and othersum
-   * being equal, in spite of the fact that we never directly called calc on XSum.
-   *
+   * We then build our data with the dependencies we want to include, and our context,
+   * and run calc on DF and DF2 any number of times we want to iterate their transformations.
    */
+  lazy val dfdat = data[DF with col1 with col2 with DF2 with jointest](ctx).calc[DataFrame,DF2].calc[DataFrame,DF].calc[DataFrame,DF]
 
   def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder().config("spark.master","local").getOrCreate()
     val t0 = System.nanoTime()
-    println(s"Starting Test with $k iterations")
-    println(s"X Is Cauchy:${s.map(d => d.calc[Boolean,XSumConverges].initialVal)}")
-    println(s"YConverges:${s.map(d => d.calc[Boolean,YConverges].initialVal)}")
-    println(s"X:${s.map(d => d.fetchDouble[X].initialVal)}")
-    println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
-    println(s"XSum: ${s.map(d => d.fetchDouble[XSum].initialVal)}")
-    println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
+    dfdat.typedInitVal.show
+    dfdat.fetch[DataFrame,DF2].typedInitVal.show
+    dfdat.calc[DataFrame,jointest].typedInitVal.show
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }

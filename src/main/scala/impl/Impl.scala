@@ -2,15 +2,15 @@ package Typical
 import Typical.core.Typeable._
 
 import scala.reflect.ClassTag
-
 import Typical.implicits.implicits._
+import org.apache.spark.sql.{Column, DataFrame}
 
 package object impl {
 
   implicit object myprovider extends number
 
 
-  case class axiom[B, A <: ax[A] with InitialType[B, A]](override val typedInitVal: B)(override implicit val tag: ClassTag[A], provi: provider[_]) extends ax[A] with InitialType[B, A] {
+  class axiom[B, A <: ax[A] with InitialType[B, A]](override val typedInitVal: B)(override implicit val tag: ClassTag[A], provi: provider[_]) extends ax[A] with InitialType[B, A] {
     override val initialVal: Any = this.typedInitVal
     override val prov: provider[_] = provi.put(this.name, this.initialVal)
 
@@ -114,7 +114,8 @@ package object impl {
 
   class sum[
     self <: sum[self, _, _] with model[_, self] with InitialType[Double, self] with reset[Double, self],
-    dep <: dataset[_], target <: model[dep, target] with InitialType[Double, target]
+    dep <: dataset[_],
+    target <: model[dep, target] with InitialType[Double, target]
   ](implicit override  val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
   ) extends bind[Double,self,dep,target](
     (
@@ -125,6 +126,24 @@ package object impl {
       }
       ).set[self]
   )(build[target].typedInitVal)(tagtarget, tagself, dprov)
+
+
+  class join[
+    self <: join[self, _, _,_] with model[_, self] with InitialType[DataFrame, self] with reset[DataFrame, self],
+    dep <: dataset[dep] with InitialType[Column,dep],
+    target1 <: model[_<:dep, target1] with InitialType[DataFrame, target1],
+    target2 <: model[_<:dep, target2] with InitialType[DataFrame, target2]
+  ](implicit val tagtarget: ClassTag[target1],tagtarget2:ClassTag[target2], tagself: ClassTag[self],tagdep:ClassTag[dep], dprov: provider[_]
+   ) extends recSim[DataFrame,self,dep with target1 with target2 with self](
+    (
+      (src: dataset[dep with self with target1 with target2]) => {
+        val currsum = src.fetch[DataFrame,target2].typedInitVal
+        val nextval = src.fetch[DataFrame,target1].typedInitVal
+        val joincol = src.fetch[Column,dep].name
+        currsum.join(nextval,joincol)
+      }
+      ).set[self]
+  )(null)
 
 
   class bind[
