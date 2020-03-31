@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="6196af1b-b963-4590-8bc8-56aed0ba6154" name="Default Changelist" comment="" />
+    <list default="true" id="6196af1b-b963-4590-8bc8-56aed0ba6154" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/scala/Algebras.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/scala/Orders/Order.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/scala/impl/Impl.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/scala/implicits/implicits.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.sbt" beforeDir="false" afterPath="$PROJECT_DIR$/build.sbt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/Test.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/Test.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/Typeable.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/Typeable.scala" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -14,6 +24,18 @@
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
     </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="SBT">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand />
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -58,7 +80,7 @@
     </option>
     <option name="modificationStamps">
       <map>
-        <entry key="$PROJECT_DIR$" value="3165690215072" />
+        <entry key="$PROJECT_DIR$" value="3170356807337" />
         <entry key="$PROJECT_DIR$/build.sbt" value="75425684" />
         <entry key="$PROJECT_DIR$/project/build.properties" value="1396028727" />
       </map>
