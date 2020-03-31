@@ -37,20 +37,6 @@ object Typeable {
     }
   }
 
-  trait Ring[-U] extends sigma[U] {
-    def ringplus[A, Ring[A] <: U](a: A, b: A): A
-  }
-  trait ReRing[U]{
-    def reringplus[A>:U](a: A, b: A): A
-  }
-  trait sigma[-A]
-
-  trait prod[+A]
-
-  trait DataAccess[-A]
-
-  trait DataProduction[+A]
-
   trait InitialType[A,+B<:dataset[_]]{
     type tpe = A
     val typedInitVal:A
@@ -64,7 +50,6 @@ object Typeable {
 
     def dataprovider():provider[_]
     def clone(p:provider[_] = this.dataprovider()):dataset[A]
-    //def setprov(prod:provider[_]) = this.prov = prod
   }
 
   trait ax[A <: ax[A]] extends dataset[A]{
@@ -76,7 +61,7 @@ object Typeable {
     def reset(initial: dataset[_] with InitialType[initType,_]): dataset[A] with reset[initType,A]
     def reset2(initial: initType): dataset[A] with reset[initType,A]
   }
-  trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {//with DataAccess[dependencies with output] with DataProduction[output] {
+  trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {
     //val initialVal: Any
     implicit val tag:ClassTag[output]
     val name:String = classTag[output].runtimeClass.getSimpleName
@@ -84,18 +69,9 @@ object Typeable {
   }
 
   //concretely define algebraic operators
-  trait number extends ReRing[Int with Double with number] with provider[number] { //with Data[Int with Double with number]
-    override def reringplus[A>: Int with Double with number](a: A, b: A): A = (a, b) match {
-      case (i: Int, j: Int) => (i + j).asInstanceOf[A]
-      //case (i: Double, j: Double) => (i + j).asInstanceOf[A]
-      //case (i:dataset[_],j:dataset[_]) => (i + j).asInstanceOf[A]
-      case _ => (a.asInstanceOf[Double] + b.asInstanceOf[Double]).asInstanceOf[A]
-    }
-    //def +[A>:Int with Double with number](a: A): A = this.+(this.asInstanceOf[A], a)
+  trait number extends provider[number] {
     val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
     override val statefulmap = HashMap[String,Any]()
-    //override val nonstatefulmap = HashMap[String,Any]()
-    //override val mymap:Map[String,Any] = refmap
     def getfrommap[A](m:Map[String,Any])(implicit tag:ClassTag[A]):Option[Any] = {
       val name = buildName[A]
       val ret = m.get(name)
@@ -109,24 +85,6 @@ object Typeable {
     def putInMap(s: String, a: Any,m:Map[String,Any]): Map[String,Any] =  {
       m.updated(s,a)
     }
-//    override def put(s: String, a: Any): provider[number] = {
-//      class temp(override val statefulmap:Map[String,Any]) extends provider[number]
-//      new temp(this.statefulmap.updated(s,a))
-//    }
-//    override def put(s: String, a: Any)(implicit prov:provider[_]): provider[number] = {
-//      class P extends provider[number] {
-//        override val mymap: Map[String, Any] = this.mymap
-//        override val nonstatefulmap = prov.nonstatefulmap.updated(s,a)
-//        override def get[A](implicit tag: ClassTag[A]): Option[Any] = getfrommap[A](this.nonstatefulmap)
-//
-//        override def put(s: String, a: Any): provider[number] = putInMap()
-//
-//        override def getStateful(s: String): Option[Any] = getStatefulfrommap(s,this.nonstatefulmap)
-//
-//        override def getOther[U <: dataset[_], as](implicit tag: ClassTag[U]): as = getOtherfrommap[U,as](this.nonstatefulmap)
-//      }
-//      new P
-//    }
   }
 
 }

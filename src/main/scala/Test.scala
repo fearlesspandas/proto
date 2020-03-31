@@ -42,6 +42,8 @@ object Test {
    * which gives us all we need to test cauchy convergence, given the above definition for LooksConvergent
    */
   class XSum extends sum[XSum,X,X]
+  class othersum extends sum[othersum,X,X]
+  class ysum extends sum[ysum,Y with A, Y]
   /**
    * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
    * included in their own dependencies
@@ -50,16 +52,16 @@ object Test {
   /**
    * Prepare the context provider with the initial values
    */
-  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges]
+  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum]
   /**
    * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for experimentation with parrallel processing of sims.
    *
    * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
    * Modifying k and m values will reveal how X converges very slowly compared to Y
    */
-  val k = 50              //number of iterations per sim
+  val k = 100              //number of iterations per sim
   val m = 1                   //number of sims we want to run
-  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft[dataset[A with X  with XSum with Y with YConverges with XSumConverges]](data[A with X  with XSum with Y with YConverges with XSumConverges](ctx))( (a,c) => a.calc[Double,X].calc[Double,Y])):_*)//.par
+  lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft[dataset[A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum]](data[A with X  with XSum with Y with YConverges with XSumConverges with othersum with ysum](ctx))( (a,_) => a.calcWithBinding[Double,X].calcWithBinding[Double,X].calc[Double,othersum])):_*)//.par
   val test: dataset[X with XSum with Y] with InitialType[_,_] = data[X with XSum with Y](ctx)
   val t: dataset[XSum with X with Y] with InitialType[Double, XSum with X with Y] = test.calc[Double,X]//.calc[Double,Y]
   def main(args: Array[String]): Unit = {
@@ -69,6 +71,8 @@ object Test {
     println(s"YConverges:${s.map(d => d.calc[Boolean,YConverges].initialVal)}")
     println(s"X:${s.map(d => d.fetchDouble[X].initialVal)}")
     println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
+    println(s"XSum: ${s.map(d => d.fetchDouble[XSum].initialVal)}")
+    println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }

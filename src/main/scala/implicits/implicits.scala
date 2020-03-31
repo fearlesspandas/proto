@@ -17,7 +17,10 @@ object implicits {
 
   }
 
-  trait Calcer[A <: dataset[_] with InitialType[_,_],other<:dataset[_]]{
+  trait Calcer[
+    A <: dataset[_] with InitialType[_,_],
+    other<:dataset[_]
+  ]{
     def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](ctx:provider[_])(implicit tagu: ClassTag[U]): dataset[A with U with other] with InitialType[B, A with U with other]
     def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[A with U with other] with InitialType[B, A with U with other]
   }
@@ -32,6 +35,11 @@ object implicits {
       this.calc[B,U](this.prov)
       //instance2.apply(res).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
     }
+    def calcWithBinder[B, U >: A <: model[A, U] with dataset[_] with InitialType[B, U],binder>:A<:bind[B,binder,_>:A,U]](ctx: provider[_])(implicit tagu: ClassTag[U],tagbinder:ClassTag[binder]): dataset[A with U with binder] with InitialType[B, A with U with binder] = {
+      val x1 = calcGeneral[B,A with U with binder,binder](a.asInstanceOf[dataset[A with U with binder]])(ctx)
+      calcGeneral[B,A,U](x1)(x1.prov)
+    }
+    def calcWithBindings[B, U >: A <: model[A, U] with dataset[_] with InitialType[B, U],binder>:A<:bind[B,binder,_>:A,U]]()(implicit tagu:ClassTag[U],tagbinder:ClassTag[binder]): dataset[A with U with binder] with InitialType[B, A with U with binder] = this.calcWithBinder[B,U,binder](this.prov)
     def calcIter[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](n:Int = 1)(implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U] = {
       (0 until n).foldLeft(this.a)( (acc,curr) => this.calc[B,U](acc.dataprovider().put(acc.name,acc.initialVal))).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
     }
@@ -39,17 +47,21 @@ object implicits {
     def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]()
   }
 
-//  implicit class CalcWithBind[initType,other<:dataset[_],dep<:dataset[_],M <:model[dep,M] with InitialType[_,M],T<:bind[initType,T,dep,M]](a: dataset[bind[initType,T,dep,M] with M with dep with other])(implicit tagM:ClassTag[M],tagt:ClassTag[T],tagdep:ClassTag[dep]) extends Calcer[T with M with dep,other]{
-//    val isbinded = true
-//    val prov = a.dataprovider()
-//    override def calc[B, U >: T with M with dep <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](ctx: provider[_])(implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = {
-//      val x1 = calcGeneral[B,dep with other with M with T,U](a.asInstanceOf[dataset[M with dep with other with T]])(ctx)
-//      calcGeneral[initType,dep with M with T with U, T](x1)(x1.prov).asInstanceOf[dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U]]
-//
-//    }
-//
-//    override def calc[B, U >: T with M with dep <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calc[B,U](this.prov)
-//  }
+  implicit class CalcWithBind[
+    initType,
+    other<:dataset[_],
+    dep<:dataset[_],
+    M <:model[dep,M] with InitialType[_,M],
+    T<:bind[initType,T,dep,M]
+  ](a: dataset[bind[initType,T,dep,M] with M with dep with other])(implicit tagM:ClassTag[M],tagt:ClassTag[T],tagdep:ClassTag[dep]) {
+    val isbinded = true
+    val prov = a.dataprovider()
+    def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](ctx: provider[_])(implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = {
+      val x1 = calcGeneral[B,dep with other with M with T,U](a.asInstanceOf[dataset[M with dep with other with T]])(ctx)
+      calcGeneral[initType,dep with M with T with U, T](x1)(x1.prov).asInstanceOf[dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U]]
+    }
+    def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calcWithBinding[B,U](this.prov)
+  }
 
   implicit class Fetcher[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){
     val prov = a.dataprovider()
