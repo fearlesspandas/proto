@@ -11,7 +11,6 @@ object Typeable {
 
   //Data Accessor/consistency maintainer
   trait provider[-U] {
-    //val mymap:Map[String,Any]
     val statefulmap:Map[String,Any]
     def put(s: String, a: Any): provider[U] ={
       class temp(override val statefulmap:Map[String,Any]) extends provider[U]
@@ -22,9 +21,8 @@ object Typeable {
       val ret = this.statefulmap.get(name)
       ret
     }
-     def getOther[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
-      val res = this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
-      res
+     def getAs[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
+      this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
     }
   }
 
@@ -59,21 +57,8 @@ object Typeable {
   }
 
   trait number extends provider[number] {
-    val refmap = HashMap[String,Any](("balance",1000),("baserate",1),("TaxBurden",0))
+    val refmap = HashMap[String,Any]()
     override val statefulmap = HashMap[String,Any]()
-    def getfrommap[A](m:Map[String,Any])(implicit tag:ClassTag[A]):Option[Any] = {
-      val name = buildName[A]
-      val ret = m.get(name)
-      ret
-    }
-    def getStatefulfrommap(s:String,m:Map[String,Any]):Option[Any] = m.get(s).collect({case i:Double => i; case s:Seq[_] => Some(s); case _ => None})
-    def getOtherfrommap[U<:dataset[_],as](m:Map[String,Any])(implicit tag:ClassTag[U]):as = {
-      val res = m.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
-      res
-    }
-    def putInMap(s: String, a: Any,m:Map[String,Any]): Map[String,Any] =  {
-      m.updated(s,a)
-    }
   }
 
 }
