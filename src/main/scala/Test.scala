@@ -13,7 +13,11 @@ object Test {
    */
   class A extends axiom[Double,A](5d)
   /**
-   * Define our sequences with our classes that encapsulate them
+   * Define our sequences as functions from dataset containing our dependencies.
+   * Later when using the calc method to iterate our functions, calc will take
+   * this function, if it's the appropriate type, and use it to construct a functor
+   * for a new dataset with the updated value.
+   *
    */
   val X_f = (src:dataset[X]) =>{
       val x = src.fetchDouble[X]
@@ -21,6 +25,11 @@ object Test {
       x/2
     }
   val X_func = X_f.set[X]
+
+  /**
+   * Bind it all to a recursive simulation type, which takes datatype<:Any,self<:self,dependencies<:dataset[_]
+   * as type paramaters
+   */
   class X extends recSim[Double,X,X](X_func)(1d)
   val Y_f = (src:dataset[Y with A]) => {
     //in the future these calls to fetch src can hopefully be made implicit
@@ -58,7 +67,7 @@ object Test {
    */
   class ysum extends sum[ysum,Y with A, Y]
   /**
-   * Define Cauchy Convergence test for XSum. sums are recursive sim types and therefore need to be
+   * Define Cauchy Convergence test for XSum (convergence of the partial sums of the series produced by X). sums are recursive sim types and therefore need to be
    * included in their own dependencies
    */
   class XSumConverges extends LooksConvergent[XSumConverges, X  with XSum,XSum](.000002d,10)
@@ -83,8 +92,8 @@ object Test {
   /**
    * Here we are using calcWithBinding to calculate X. That means if there is a binding in the dataset
    * and it can be applied to X, then the full binded calculation reduces to a call of calc on X with a following call on
-   * the bind type. In our example, when the code below is executed, you will see the final result of XSum and othersum
-   * being equal, in spite of the fact that we never directly called calc on XSum.
+   * the bind type. Recall that sum types are bindings, hence in our example, when the code below is executed, you
+   * will see the final result of XSum and othersum being equal, in spite of the fact that we never directly called calc on XSum.
    *
    */
 
