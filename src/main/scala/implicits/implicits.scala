@@ -68,7 +68,7 @@ object implicits {
     val prov = a.dataprovider()
     def fetch[B,U >: A <: dataset[U] with InitialType[B,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
       val instanceu = build[U]
-      instanceu.applyFromData(prov.getOther[U,B],prov).asInstanceOf[U]
+      instanceu.applyFromData(prov.getAs[U,B],prov).asInstanceOf[U]
     }
     def fetchDouble[U >: A <: dataset[U] with InitialType[Double,U]](implicit tagu: ClassTag[U]) = this.fetch[Double,U]
     def fetchSeq[U >: A <: dataset[U] with InitialType[Seq[_],U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Seq[_],U] = this.fetch[Seq[_],U]
