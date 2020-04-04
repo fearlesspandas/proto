@@ -106,6 +106,7 @@ object Test {
     println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
     println(s"XSum: ${s.map(d => d.fetchDouble[XSum].initialVal)}")
     println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
+    println(s"othersum: ${s.map(d => d.dataprovider().statestore)}")
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
