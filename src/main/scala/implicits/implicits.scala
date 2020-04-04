@@ -70,6 +70,10 @@ object implicits {
       val instanceu = build[U]
       instanceu.applyFromData(prov.getAs[U,B],prov).asInstanceOf[U]
     }
+    def fetchFromState[B,U >: A <: dataset[U] with InitialType[B,U]](n:Int)(implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
+      val instanceu = build[U]
+      instanceu.applyFromData(prov.getStateAs[U,B](n),prov).asInstanceOf[U]
+    }
     def fetchDouble[U >: A <: dataset[U] with InitialType[Double,U]](implicit tagu: ClassTag[U]) = this.fetch[Double,U]
     def fetchSeq[U >: A <: dataset[U] with InitialType[Seq[_],U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Seq[_],U] = this.fetch[Seq[_],U]
     def fetchBool[U >: A <: dataset[U] with InitialType[Boolean,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Boolean,U] = this.fetch[Boolean,U]

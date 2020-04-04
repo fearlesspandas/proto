@@ -35,6 +35,7 @@ object Test {
     //in the future these calls to fetch src can hopefully be made implicit
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
+    println("Y state:" + src.fetchFromState[Double,Y](15).typedInitVal)
     //all operations are typechecked to ensure all datasets have correct initial types
     ((x*x) + a)/(x*2)
   }
@@ -81,7 +82,7 @@ object Test {
    * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
    * Modifying k and m values will reveal how X converges very slowly compared to Y
    */
-  val k = 100              //number of iterations per sim
+  val k = 3              //number of iterations per sim
   val m = 1                   //number of sims we want to run
   lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft(
     data[
