@@ -13,7 +13,7 @@ object Typeable {
   trait provider[-U] {
     val statefulmap:Map[String,Any]
     val statestore:Seq[Map[String,Any]]
-    def put(s: String, a: Any): provider[U] ={
+    def put(s: String, a: Any): provider[U] = {
       class temp(override val statefulmap:Map[String,Any],override val statestore: Seq[Map[String, Any]]) extends provider[U]
       new temp(this.statefulmap.updated(s,a),this.statestore :+ this.statefulmap)
     }
