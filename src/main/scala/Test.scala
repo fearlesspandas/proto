@@ -1,9 +1,87 @@
 import Typical.core.Typeable._
 import Typical.impl._
+
 import scala.reflect.ClassTag
 import Typical.implicits.implicits._
+
+import scala.collection.immutable.HashMap
+import scala.reflect.runtime.currentMirror
+import scala.tools.reflect.ToolBox
+import scala.reflect.macros.whitebox.Context
+import scala.language.experimental.macros
 object Test {
 
+  val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
+  import universe._
+  val toolbox = currentMirror.mkToolBox()
+  val t = "println(12345678)"
+//val quasitest = q"$t"
+  val quasiclasses = Seq("case class A(name:String);","class B;","class C;")
+//  quasiclasses.foreach(println(_))
+//  val C = q"class C"
+//println(quasiclasses)
+  val x = q"""
+        ..$quasiclasses
+        println( A("testing").name);
+         $test()
+       """
+
+  val compiledCode = toolbox.compile(x)
+  val result = compiledCode()
+  case class vertice(pos:Vector[Long],isAlive:Boolean)
+
+
+
+  def test_impl(c: Context)(): c.Tree = {
+    import c.universe._
+    val treeSeq = quasiclasses.map( s => c.parse(s))
+    q"println(1); ..$treeSeq; println(3) A(123455678.toString).name"
+  }
+  def test(): Unit = macro test_impl
+
+
+  class vertex extends axiom[(vertice,Map[Vector[Long],vertice]) => vertice,vertex](
+    (vert:vertice,g:Map[Vector[Long],vertice]) => {
+    val grid = g
+    val v = vert//grid.get(vert.pos).get
+    val neighbors = Seq(
+      grid.get(Vector(v.pos(0),v.pos(1) +1)),
+      grid.get(Vector(v.pos(0),v.pos(1) -1)),
+      grid.get(Vector(v.pos(0) +1,v.pos(1) +1)),
+      grid.get(Vector(v.pos(0) -1,v.pos(1) +1)),
+      grid.get(Vector(v.pos(0) +1,v.pos(1) -1)),
+      grid.get(Vector(v.pos(0) -1,v.pos(1) -1)),
+      grid.get(Vector(v.pos(0) +1,v.pos(1))),
+      grid.get(Vector(v.pos(0) -1,v.pos(1)))
+    ).filter(!_.isEmpty).map(n => n.get)
+    val twoNeighbors = neighbors.filter(n => n.isAlive).size == 2
+    val threeNeighbors = neighbors.filter(n => n.isAlive).size == 3
+    val willbealive = v match {
+      case v:vertice if (v.isAlive && twoNeighbors && threeNeighbors)  => true
+      case v:vertice if (!v.isAlive && threeNeighbors) =>true
+      case _ => false
+    }
+    vertice(v.pos,willbealive)
+  }
+  )
+
+
+  class GridMap extends recSim[
+    Map[Vector[Long],vertice],
+    GridMap,
+    GridMap with vertex
+  ](
+    ((src:dataset[GridMap with vertex]) => {
+      val grid = src.fetch[Map[Vector[Long],vertice],GridMap]
+      val griddatasets = grid.typedInitVal.values//.map( v => new vertex[v.type ](src.dataprovider())(v))
+      val VertFunc = src.fetch[(vertice,Map[Vector[Long],vertice]) => vertice,vertex].typedInitVal
+      val iteratedVertices = griddatasets.map(v => VertFunc(v,grid.typedInitVal))
+      iteratedVertices.foldLeft(grid.typedInitVal)( (acc,curr) => acc.updated(curr.pos,curr))
+
+    }).set[GridMap]
+  )(HashMap[Vector[Long],vertice]((0 to 100).map( i => (Vector(i + 0l,0l) -> vertice(Vector(i + 0l,0l),true))):_*))
+
+  //class vertexKiller[v<:vertex[_]] extends recSim[Boolean,v,]
   /**
    * Here we use Typical to build a simple prover of Cauchy convergence https://en.wikipedia.org/wiki/Cauchy%27s_convergence_test
    * It takes an epsilon double and an integer for setting max iterations of verifiability.
@@ -74,7 +152,7 @@ object Test {
   /**
    * Prepare the context provider with the initial values
    */
-  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum]
+  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum].register[GridMap].register[vertex]
   /**
    * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for easy experimentation with parrallel processing of sims.
    *
@@ -89,6 +167,7 @@ object Test {
     ](ctx).dataset
   )( (a,_) => a.calcWithBinding[Double,X].calc[Double,Y].calc[Double,othersum])):_*)//.par
 
+  val dat = data[GridMap with vertex](ctx).calc[Map[Vector[Long],vertice],GridMap].typedInitVal
   /**
    * Here we are using calcWithBinding to calculate X. That means if there is a binding in the dataset
    * and it can be applied to X, then the full binded calculation reduces to a call of calc on X with a following call on
@@ -106,6 +185,7 @@ object Test {
     println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
     println(s"XSum: ${s.map(d => d.fetchDouble[XSum].initialVal)}")
     println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
+    println("Vertices" + dat.values.toString())
     val t1 = System.nanoTime()
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }

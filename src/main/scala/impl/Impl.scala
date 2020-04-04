@@ -50,19 +50,19 @@ package object impl {
     -A <: dataset[_],
     B <: model[_, B] with InitialType[initType, B] with reset[initType, B]
   ](
-    override val typedInitVal: initType
+    override val typedInitVal: initType,override val iterateFrom: dataset[A] => dataset[B],
    )(
-    implicit override val iterateFrom: dataset[A] => dataset[B], override val tag: ClassTag[B], dprov: provider[_]
+    implicit  override val tag: ClassTag[B], dprov: provider[_]
   ) extends model[A, B] with InitialType[initType, B] with reset[initType, B] {
     override val initialVal: Any = this.typedInitVal
     override val prov: provider[_] = dprov.put(this.name, this.initialVal)
     def applyFromData[U <: dataset[_] with InitialType[tpe, _]](initial: tpe, p: provider[_]): dataset[B with U] with InitialType[tpe, _] = {
-      new sim[initType, A, B](initial)(iterateFrom, tag, p).asInstanceOf[dataset[B with U] with InitialType[tpe, _]]
+      new sim[initType, A, B](initial,iterateFrom)( tag, p).asInstanceOf[dataset[B with U] with InitialType[tpe, _]]
     }
     override def apply[U <: dataset[_] with InitialType[tpe, _]](initval: dataset[U] with InitialType[tpe, _], p: provider[_]): dataset[B with U] with InitialType[tpe, _] = this.applyFromData(initval.typedInitVal, p)
     override def reset2(initial: initType): dataset[B] with reset[initType, B] = {
       implicit val newprov = this.prov.put(this.name, initial)
-      new sim[initType, A, B](initial)(iterateFrom, tag, this.prov.put(this.name, initial)).asInstanceOf[B with reset[initType, B]]
+      new sim[initType, A, B](initial,iterateFrom)( tag, this.prov.put(this.name, initial)).asInstanceOf[B with reset[initType, B]]
     }
     override def reset(initial: dataset[_] with InitialType[initType, _]): dataset[B] with reset[initType, B] = this.reset2(initial.typedInitVal)
     override def dataprovider(): provider[_] = this.prov
@@ -79,7 +79,7 @@ package object impl {
     override val typedInitVal: initType
   )(
     implicit override val tag: ClassTag[B], prov: provider[_]
-  ) extends sim[initType, A, B](typedInitVal)(iterateFrom, tag, prov) with InitialType[initType, B] with reset[initType, B]
+  ) extends sim[initType, A, B](typedInitVal,iterateFrom)(tag, prov) with InitialType[initType, B] with reset[initType, B]
 
 
   class SeqLooksConvergent[self <: SeqLooksConvergent[self, _, _, _] with model[_, self] with InitialType[Boolean, self] with reset[Boolean, self],
