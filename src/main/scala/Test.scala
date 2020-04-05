@@ -30,13 +30,19 @@ object Test {
    * Bind it all to a recursive simulation type, which takes datatype<:Any,self<:self,dependencies<:dataset[_]
    * as type paramaters
    */
+  val testing = 1d
+  class vartest extends recSim[Double,vartest,vartest](
+    ((src:dataset[vartest]) => src.fetch[Double,vartest] + testing).set[vartest]
+  )(0d)
   class X extends recSim[Double,X,X](X_func)(1d)
   val Y_f = (src:dataset[Y with A]) => {
     //in the future these calls to fetch src can hopefully be made implicit
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
+    val newsrc = src.include[Double,X](50000d)
+    println("X included in Y: " + newsrc.fetchDouble[X].typedInitVal)
     //example showcasing typesafe retrieval of past state data
-    println("Y state:" + src.fetchFromState[Double,Y](15).typedInitVal)
+    //println("Y state:" + src.fetchFromState[Double,Y](15).typedInitVal)
     //all operations are typechecked to ensure all datasets have correct initial types
     ((x*x) + a)/(x*2)
   }
@@ -76,14 +82,14 @@ object Test {
   /**
    * Prepare the context provider with the initial values
    */
-  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum]
+  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum].register[vartest]
   /**
    * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for easy experimentation with parrallel processing of sims.
    *
    * We include our above classes as dependencies, and iterate X and Y k times before testing convergence.
    * Modifying k and m values will reveal how X converges very slowly compared to Y
    */
-  val k = 3              //number of iterations per sim
+  val k = 3000              //number of iterations per sim
   val m = 1                   //number of sims we want to run
   lazy val s = Seq((0 until m).map(_ => (0 until k).foldLeft(
     data[
@@ -98,7 +104,7 @@ object Test {
    * will see the final result of XSum and othersum being equal, in spite of the fact that we never directly called calc on XSum.
    *
    */
-
+  val dat = data[vartest](ctx).calc[Double,vartest]
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
     println(s"Starting Test with $k iterations")
@@ -108,8 +114,9 @@ object Test {
     println(s"Y:${s.map(d => d.fetchDouble[Y].initialVal)}")
     println(s"XSum: ${s.map(d => d.fetchDouble[XSum].initialVal)}")
     println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
-    println(s"statesequence: ${s.map(d => d.dataprovider().statestore)}")
+    println(s"statesequence: ${s.map(d => d.dataprovider().statestore.size)}")
     val t1 = System.nanoTime()
+    println("dat: " + dat.typedInitVal)
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
 }

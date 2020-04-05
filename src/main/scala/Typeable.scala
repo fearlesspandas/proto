@@ -62,9 +62,8 @@ object Typeable {
   }
 
   trait number extends provider[number] {
-    val refmap = HashMap[String,Any]()
-    override val statestore: Seq[Map[String, Any]] = Seq()
-    override val statefulmap = HashMap[String,Any]()
+    override lazy val statestore: Seq[Map[String, Any]] = Seq()
+    override lazy val statefulmap = HashMap[String,Any]()
   }
 
 }
