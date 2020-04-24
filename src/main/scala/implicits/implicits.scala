@@ -1,7 +1,7 @@
 package Typical.implicits
 
 import Typical.core.Typeable.{InitialType, _}
-import Typical.impl.bind
+import Typical.impl.{bind, recSim}
 
 import scala.reflect.ClassTag
 
@@ -63,7 +63,14 @@ object implicits {
     }
     def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calcWithBinding[B,U](this.prov)
   }
-
+//
+//  class DataRule[
+//    initType,
+//    B <: model[_, B]
+//      with InitialType[initType, B]
+//      with reset[initType, B],
+//    -A <: dataset[B]
+//  ] extends recSim[initType,B,A]
   implicit class Fetcher[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){
     val prov = a.dataprovider()
     def fetch[B,U >: A <: dataset[U] with InitialType[B,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {

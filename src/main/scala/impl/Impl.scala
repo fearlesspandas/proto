@@ -11,6 +11,7 @@ package object impl {
 
 
   case class axiom[B, A <: ax[A] with InitialType[B, A]](override val typedInitVal: B)(override implicit val tag: ClassTag[A], provi: provider[_]) extends ax[A] with InitialType[B, A] {
+    type asAx = axiom[B,A]
     override lazy val initialVal: Any = this.typedInitVal
     override lazy val prov: provider[_] = provi.put(this.name, this.initialVal)
 
@@ -136,6 +137,4 @@ package object impl {
   (
   implicit val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
   ) extends recSim[initType, self, dep with self with target](iterateFrom)(typedInitVal)(tagself, dprov)
-
-
 }

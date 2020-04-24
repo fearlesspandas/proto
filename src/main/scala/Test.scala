@@ -39,8 +39,6 @@ object Test {
     //in the future these calls to fetch src can hopefully be made implicit
     val x = src.fetchDouble[Y]
     val a = src.fetchDouble[A]
-    val newsrc = src.include[Double,X](50000d)
-    println("X included in Y: " + newsrc.fetchDouble[X].typedInitVal)
     //example showcasing typesafe retrieval of past state data
     //println("Y state:" + src.fetchFromState[Double,Y](15).typedInitVal)
     //all operations are typechecked to ensure all datasets have correct initial types
