@@ -11,34 +11,7 @@ import scala.reflect.macros.whitebox.Context
 import scala.language.experimental.macros
 object Test {
 
-  val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
-  import universe._
-  val toolbox = currentMirror.mkToolBox()
-  val t = "println(12345678)"
-//val quasitest = q"$t"
-  val quasiclasses = Seq("case class A(name:String);","class B;","class C;")
-//  quasiclasses.foreach(println(_))
-//  val C = q"class C"
-//println(quasiclasses)
-  val x = q"""
-        ..$quasiclasses
-        println( A("testing").name);
-         $test()
-       """
-
-  val compiledCode = toolbox.compile(x)
-  val result = compiledCode()
   case class vertice(pos:Vector[Long],isAlive:Boolean)
-
-
-
-  def test_impl(c: Context)(): c.Tree = {
-    import c.universe._
-    val treeSeq = quasiclasses.map( s => c.parse(s))
-    q"println(1); ..$treeSeq; println(3) A(123455678.toString).name"
-  }
-  def test(): Unit = macro test_impl
-
 
   class vertex extends axiom[(vertice,Map[Vector[Long],vertice]) => vertice,vertex](
     (vert:vertice,g:Map[Vector[Long],vertice]) => {
