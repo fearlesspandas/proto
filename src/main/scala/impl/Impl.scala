@@ -11,8 +11,9 @@ package object impl {
 
 
   case class axiom[B, A <: ax[A] with InitialType[B, A]](override val typedInitVal: B)(override implicit val tag: ClassTag[A], provi: provider[_]) extends ax[A] with InitialType[B, A] {
-    override val initialVal: Any = this.typedInitVal
-    override val prov: provider[_] = provi.put(this.name, this.initialVal)
+    type asAx = axiom[B,A]
+    override lazy val initialVal: Any = this.typedInitVal
+    override lazy val prov: provider[_] = provi.put(this.name, this.initialVal)
 
     def applyFromData[U <: dataset[_] with InitialType[B, _]](initial: B, p: provider[_]): dataset[A with U] with InitialType[B, _] = {
       new axiom[B, A](initial)(tag, p).asInstanceOf[dataset[A with U] with InitialType[B, _]]
@@ -54,8 +55,8 @@ package object impl {
    )(
     implicit  override val tag: ClassTag[B], dprov: provider[_]
   ) extends model[A, B] with InitialType[initType, B] with reset[initType, B] {
-    override val initialVal: Any = this.typedInitVal
-    override val prov: provider[_] = dprov.put(this.name, this.initialVal)
+    override lazy val initialVal: Any = this.typedInitVal
+    override lazy val prov: provider[_] = dprov.put(this.name, this.initialVal)
     def applyFromData[U <: dataset[_] with InitialType[tpe, _]](initial: tpe, p: provider[_]): dataset[B with U] with InitialType[tpe, _] = {
       new sim[initType, A, B](initial,iterateFrom)( tag, p).asInstanceOf[dataset[B with U] with InitialType[tpe, _]]
     }
@@ -136,6 +137,4 @@ package object impl {
   (
   implicit val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
   ) extends recSim[initType, self, dep with self with target](iterateFrom)(typedInitVal)(tagself, dprov)
-
-
 }

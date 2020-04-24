@@ -1,7 +1,7 @@
 package Typical.implicits
 
 import Typical.core.Typeable.{InitialType, _}
-import Typical.impl.bind
+import Typical.impl.{bind, recSim}
 
 import scala.reflect.ClassTag
 
@@ -63,12 +63,27 @@ object implicits {
     }
     def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calcWithBinding[B,U](this.prov)
   }
-
+//
+//  class DataRule[
+//    initType,
+//    B <: model[_, B]
+//      with InitialType[initType, B]
+//      with reset[initType, B],
+//    -A <: dataset[B]
+//  ] extends recSim[initType,B,A]
   implicit class Fetcher[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){
     val prov = a.dataprovider()
     def fetch[B,U >: A <: dataset[U] with InitialType[B,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
       val instanceu = build[U]
       instanceu.applyFromData(prov.getAs[U,B],prov).asInstanceOf[U]
+    }
+    def include[B,U <: dataset[U] with InitialType[B,U]](typedInitVal:B)(implicit tagu: ClassTag[U]): dataset[U with A] with InitialType[B,U with A] = {
+      val instanceu = build[U].applyFromData(typedInitVal,a.dataprovider())
+      a.clone(instanceu.prov).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+    }
+    def fetchFromState[B,U >: A <: dataset[U] with InitialType[B,U]](n:Int)(implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
+      val instanceu = build[U]
+      instanceu.applyFromData(prov.getStateAs[U,B](n),prov).asInstanceOf[U]
     }
     def fetchDouble[U >: A <: dataset[U] with InitialType[Double,U]](implicit tagu: ClassTag[U]) = this.fetch[Double,U]
     def fetchSeq[U >: A <: dataset[U] with InitialType[Seq[_],U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Seq[_],U] = this.fetch[Seq[_],U]
