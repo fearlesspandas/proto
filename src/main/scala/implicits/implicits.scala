@@ -16,6 +16,24 @@ object implicits {
     instance2.applyFromData(res.typedInitVal, ctx.put(res.name, res.initialVal)).asInstanceOf[dataset[dep with target] with InitialType[B,dep with target]]
 
   }
+  def transactGeneral[
+    B,
+    dep<:dataset[_],
+    target >: dep <: model[dep, target] with dataset[_] with InitialType[B,target]
+  ](
+                          a:dataset[dep]
+                        )
+   (
+     ctx:provider[_] = a.dataprovider()
+  )(
+    implicit tagu: ClassTag[target]
+  ): dataset[target] with InitialType[B, target] = {
+    //println("calling calc")
+    val instance2 = build[target]
+    val res = instance2.iterateFrom(a.clone(ctx)).asInstanceOf[target]
+    instance2.applyFromData(res.typedInitVal, ctx.put(res.name, res.initialVal)).asInstanceOf[dataset[target] with InitialType[B,target]]
+
+  }
 
   trait Calcer[
     A <: dataset[_] with InitialType[_,_],
@@ -45,6 +63,7 @@ object implicits {
     }
     def calcDouble[U >: A <: model[A, U] with dataset[_] with InitialType[Double, U]](implicit tagu: ClassTag[U]) =  this.calc[Double,U]()
     def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]()
+    def transact[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](ctx:provider[_] = this.prov) = transactGeneral[B,A,U](a)(ctx)
   }
 
   implicit class CalcWithBind[
