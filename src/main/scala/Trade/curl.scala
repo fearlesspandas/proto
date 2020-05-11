@@ -1,14 +1,12 @@
 package Trade
 
-import java.io.{File, PrintWriter}
+import java.io.{File, FileOutputStream, PrintWriter}
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 import scala.io.Source
-
 import Typical.impl._
-
 import Typical.core.Typeable.dataset
 import Typical.impl.recSim
 import Typical.implicits.implicits._
@@ -34,11 +32,12 @@ object curl {
         "-H", s"CB-ACCESS-TIMESTAMP: $timestamp",
         "-H", s"CB-ACCESS-PASSPHRASE: $passphrase"
       )
-      val pw = new PrintWriter(new File("src/main/resources/bidout.json"))
+      val outpath = "src/main/resources/bidout.json"
+      val pw = new PrintWriter(new FileOutputStream(outpath,false))
       val res = cmd.!!
       pw.write(res)
       pw.close()
-      res
+      outpath
     }).set[curl]
   )("")
 

@@ -31,7 +31,7 @@ object Test {
   class askdf extends recSim[DataFrame,askdf, askdf with curl](
     ((src:dataset[askdf with curl]) => {
       val data = src.calc[String,curl].typedInitVal
-      val rawdf = spark.read.json("src/main/resources/bidout.json")
+      val rawdf = spark.read.json(data)
       rawdf.withColumn("asks", explode(rawdf.col("asks"))).select($"asks").map((row:Row) => {
         (
           row.getAs[Seq[String]](0)(0).toDouble,
@@ -59,8 +59,8 @@ object Test {
     val dat = data[biddf with curl with askdf](myprovider.register[biddf].register[curl].register[askdf])
     val res = dat.calc[DataFrame,biddf].typedInitVal
     val res2 = dat.calc[DataFrame,askdf].typedInitVal
-    res.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-bids")
-    res2.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-asks")
+    //res.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-bids")
+    //res2.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-asks")
     println(s"Result: $res")
     res.show(false)
     res2.show(false)
