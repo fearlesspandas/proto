@@ -1,7 +1,7 @@
 package Typical.implicits
 
 import Typical.core.Typeable.{InitialType, _}
-import Typical.impl.{bind, recSim}
+import Typical.impl.{bind, flatten, recSim}
 
 import scala.reflect.ClassTag
 
@@ -107,6 +107,7 @@ object implicits {
     def fetchDouble[U >: A <: dataset[U] with InitialType[Double,U]](implicit tagu: ClassTag[U]) = this.fetch[Double,U]
     def fetchSeq[U >: A <: dataset[U] with InitialType[Seq[_],U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Seq[_],U] = this.fetch[Seq[_],U]
     def fetchBool[U >: A <: dataset[U] with InitialType[Boolean,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Boolean,U] = this.fetch[Boolean,U]
+    def flatfetch[U>:A <: flatten[U,_,_,_,_] ](implicit tagu:ClassTag[U]) = build[U]
   }
 
 

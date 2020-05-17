@@ -7,56 +7,35 @@ import Typical.implicits.implicits._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import Trade.curl._
-
+import dataAccessors.data._
 object Test {
 
 
-  val spark = SparkSession.builder.master("local[*]").getOrCreate()
-  import spark.implicits._
 
-  class biddf extends recSim[DataFrame,biddf, biddf with curl](
-    ((src:dataset[biddf with curl]) => {
-      val data = src.calc[String,curl].typedInitVal
-      val rawdf = spark.read.json("src/main/resources/bidout.json")
-      rawdf.withColumn("bids", explode(rawdf.col("bids"))).select($"bids").map((row:Row) => {
-        (
-          row.getAs[Seq[String]](0)(0).toDouble,
-          row.getAs[Seq[String]](0)(1).toDouble,
-          row.getAs[Seq[String]](0)(2).toDouble
-        )
-      }).toDF("price","volume","quantity")
-    }).set[biddf]
-  )(Seq.empty[Int].toDF)
-
-  class askdf extends recSim[DataFrame,askdf, askdf with curl](
-    ((src:dataset[askdf with curl]) => {
-      val data = src.calc[String,curl].typedInitVal
-      val rawdf = spark.read.json(data)
-      rawdf.withColumn("asks", explode(rawdf.col("asks"))).select($"asks").map((row:Row) => {
-        (
-          row.getAs[Seq[String]](0)(0).toDouble,
-          row.getAs[Seq[String]](0)(1).toDouble,
-          row.getAs[Seq[String]](0)(2).toDouble
-        )
-      }).toDF("price","volume","quantity")
-    }).set[askdf]
-  )(Seq.empty[Int].toDF)
-
-
-  def main1(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    val dat = data[curl](myprovider.register[curl])
-    val res = dat.calc[String,curl].typedInitVal
-    println(s"Result: $res")
+    val dat = data[tickercurl with tickerdf with enrichedData](myprovider.register[tickercurl].register[tickerdf].register[enrichedData])
+    val updateddata = (0 to 2).foldLeft[dataset[tickercurl with tickerdf with enrichedData]](dat)((data,curr) => {Thread.sleep(1000);data.calc[String,tickercurl]} )
+    val res = updateddata.calc[DataFrame,enrichedData].typedInitVal
+    println(s"Result:")
+    res.show(false)
     val t1 = System.nanoTime()
 
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
 
-  def main(args:Array[String]): Unit = {
+  def main1(args:Array[String]): Unit = {
     val spark = SparkSession.builder.master("local[*]").getOrCreate()
     val t0 = System.nanoTime()
-    val dat = data[biddf with curl with askdf](myprovider.register[biddf].register[curl].register[askdf])
+    val dat = data[biddf with bookcurl with askdf with price with volume with quantity](
+      myprovider
+        .register[biddf]
+        .register[bookcurl]
+        .register[askdf]
+        .register[price]
+        .register[volume]
+        .register[quantity]
+    )
     val res = dat.calc[DataFrame,biddf].typedInitVal
     val res2 = dat.calc[DataFrame,askdf].typedInitVal
     //res.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-bids")

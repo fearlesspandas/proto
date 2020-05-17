@@ -1,9 +1,10 @@
 package Typical
+import Orders.Order.{order, orderbook, orderbooktype}
 import Typical.core.Typeable._
 
 import scala.reflect.ClassTag
-
 import Typical.implicits.implicits._
+import org.apache.spark.sql.{Column, DataFrame}
 
 package object impl {
 
@@ -137,4 +138,39 @@ package object impl {
   (
   implicit val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
   ) extends recSim[initType, self, dep with self with target](iterateFrom)(typedInitVal)(tagself, dprov)
+
+  class join[
+    self <: join[self, _, _,_] with model[_, self] with InitialType[DataFrame, self] with reset[DataFrame, self],
+    dep <: dataset[dep] with InitialType[Column,dep],
+    target1 <: model[_<:dep, target1] with InitialType[DataFrame, target1],
+    target2 <: model[_<:dep, target2] with InitialType[DataFrame, target2]
+  ](implicit val tagtarget: ClassTag[target1],tagtarget2:ClassTag[target2], tagself: ClassTag[self],tagdep:ClassTag[dep], dprov: provider[_]
+   ) extends recSim[DataFrame,self,dep with target1 with target2 with self](
+    (
+      (src: dataset[dep with self with target1 with target2]) => {
+        val currsum = src.fetch[DataFrame,target2].typedInitVal
+        val nextval = src.fetch[DataFrame,target1].typedInitVal
+        val joincol = src.fetch[Column,dep].name
+        currsum.join(nextval,joincol)
+      }
+      ).set[self]
+  )(null)
+
+
+  class flatten[
+    self<:flatten[self,_,_,_,_],
+    flatout,
+    dep<:dataset[_],
+    inputType,
+    A<: recSim[ inputType => flatout ,A, A with dep]
+  ](implicit tagA:ClassTag[A],tagself:ClassTag[self]) extends axiom[
+    (dataset[dep with A],inputType) => dataset[A with dep] with InitialType[inputType => flatout,A with dep],
+    flatten[self,flatout,dep,inputType,A]
+  ](
+    (src:dataset[dep with A],o:inputType) => {
+      val res = src.calc[inputType => flatout,A].typedInitVal(o)
+      src.include[inputType => flatout,A](_ => res)
+
+    }
+  )
 }
