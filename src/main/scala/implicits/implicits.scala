@@ -1,7 +1,7 @@
 package Typical.implicits
 
-import Typical.core.Typeable.{InitialType, _}
-import Typical.impl.{bind, recSim}
+import Typical.core.Typeable.{InitialType, dataset, _}
+import Typical.impl.{bind, flatten, recSim}
 
 import scala.reflect.ClassTag
 
@@ -14,24 +14,6 @@ object implicits {
     val instance2 = build[target]
     val res = instance2.iterateFrom(a.clone(ctx)).asInstanceOf[target]
     instance2.applyFromData(res.typedInitVal, ctx.put(res.name, res.initialVal)).asInstanceOf[dataset[dep with target] with InitialType[B,dep with target]]
-
-  }
-  def transactGeneral[
-    B,
-    dep<:dataset[_],
-    target >: dep <: model[dep, target] with dataset[_] with InitialType[B,target]
-  ](
-                          a:dataset[dep]
-                        )
-   (
-     ctx:provider[_] = a.dataprovider()
-  )(
-    implicit tagu: ClassTag[target]
-  ): dataset[target] with InitialType[B, target] = {
-    //println("calling calc")
-    val instance2 = build[target]
-    val res = instance2.iterateFrom(a.clone(ctx)).asInstanceOf[target]
-    instance2.applyFromData(res.typedInitVal, ctx.put(res.name, res.initialVal)).asInstanceOf[dataset[target] with InitialType[B,target]]
 
   }
 
@@ -53,6 +35,11 @@ object implicits {
       this.calc[B,U](this.prov)
       //instance2.apply(res).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
     }
+    def flatCalc[X>:A <:model[A, X] with dataset[_] with InitialType[input => out, X],input,out](in:input)(implicit tagu: ClassTag[X]): dataset[A with X] with InitialType[input => out, A with X ] = {
+      val res = this.calc[input=> out,X](this.prov).typedInitVal(in)
+      a.include[input => out,X](_ => res)
+      //instance2.apply(res).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
+    }
     def calcWithBinder[B, U >: A <: model[A, U] with dataset[_] with InitialType[B, U],binder>:A<:bind[B,binder,_>:A,U]](ctx: provider[_])(implicit tagu: ClassTag[U],tagbinder:ClassTag[binder]): dataset[A with U with binder] with InitialType[B, A with U with binder] = {
       val x1 = calcGeneral[B,A with U with binder,binder](a.asInstanceOf[dataset[A with U with binder]])(ctx)
       calcGeneral[B,A,U](x1)(x1.prov)
@@ -63,8 +50,13 @@ object implicits {
     }
     def calcDouble[U >: A <: model[A, U] with dataset[_] with InitialType[Double, U]](implicit tagu: ClassTag[U]) =  this.calc[Double,U]()
     def calcSeq[U >: A <: model[A, U] with dataset[_] with InitialType[Seq[_], U]](implicit tagu: ClassTag[U]) =  this.calc[Seq[_],U]()
-    def transact[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](ctx:provider[_] = this.prov) = transactGeneral[B,A,U](a)(ctx)
+
+    ///def flatCalc[U >: A <: flatten[_,_,_,_]](implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U ]
   }
+  //
+  //  implicit class flatCalcer(a:flatten[_,_,_,_,_]){
+  //
+  //  }
 
   implicit class CalcWithBind[
     initType,
@@ -82,14 +74,14 @@ object implicits {
     }
     def calcWithBinding[B, U >: M <: model[T with M with dep, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[T with M with dep with other with U] with InitialType[B, T with M with dep with other with U] = this.calcWithBinding[B,U](this.prov)
   }
-//
-//  class DataRule[
-//    initType,
-//    B <: model[_, B]
-//      with InitialType[initType, B]
-//      with reset[initType, B],
-//    -A <: dataset[B]
-//  ] extends recSim[initType,B,A]
+  //
+  //  class DataRule[
+  //    initType,
+  //    B <: model[_, B]
+  //      with InitialType[initType, B]
+  //      with reset[initType, B],
+  //    -A <: dataset[B]
+  //  ] extends recSim[initType,B,A]
   implicit class Fetcher[A <: dataset[_] with InitialType[_,_]](a: dataset[A])(implicit tagA:ClassTag[A]){
     val prov = a.dataprovider()
     def fetch[B,U >: A <: dataset[U] with InitialType[B,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
@@ -107,6 +99,19 @@ object implicits {
     def fetchDouble[U >: A <: dataset[U] with InitialType[Double,U]](implicit tagu: ClassTag[U]) = this.fetch[Double,U]
     def fetchSeq[U >: A <: dataset[U] with InitialType[Seq[_],U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Seq[_],U] = this.fetch[Seq[_],U]
     def fetchBool[U >: A <: dataset[U] with InitialType[Boolean,U]](implicit tagu: ClassTag[U]): dataset[U] with InitialType[Boolean,U] = this.fetch[Boolean,U]
+    //    def flatFetch[
+    //      flatout,
+    //      dep<:dataset[dep],
+    //      inputType,
+    //      A<: recSim[ inputType => flatout ,A, A with dep],
+    //    U>:A<:flatten[flatout,dep,inputType,A] with dataset[U] with InitialType[(dataset[dep with A],inputType) => dataset[A with dep] with InitialType[inputType => flatout,A with dep], U ]
+    //    ](implicit tagu: ClassTag[U]): dataset[U] with InitialType[(dataset[dep with A],inputType) => dataset[A with dep] with InitialType[inputType => flatout,A with dep], U ] = {
+    //      this.fetch[
+    //        (dataset[dep with A],inputType) => dataset[A with dep] with InitialType[inputType => flatout,A with dep],
+    //        U
+    //      ]
+    //    }
+    def flatfetch[U>:A <: flatten[U,_,_,_,_] ](implicit tagu:ClassTag[U]) = build[U]
   }
 
 
@@ -132,9 +137,9 @@ object implicits {
     //val prov = instanceA.dataprovider()
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
   }
-//  implicit class ToResetter2[initType,A<:dataset[_],B <: dataset[_] with InitialType[initType,B]](f:dataset[A] => initType){
-//    def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
-//  }
+  //  implicit class ToResetter2[initType,A<:dataset[_],B <: dataset[_] with InitialType[initType,B]](f:dataset[A] => initType){
+  //    def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
+  //  }
   implicit class ToResetter2[initType,A<:dataset[_]](f:dataset[A] => initType){
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset2(f(d))
   }
