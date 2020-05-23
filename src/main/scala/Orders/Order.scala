@@ -37,10 +37,10 @@ object Order {
 
   type orderbooktype  = order => Map[Any,Seq[order]]
 
-  class orderbook extends recSim[
+  class orderbook extends rsim[
     orderbooktype,
-    orderbook,
-    orderbook with matching
+    orderbook with matching,
+    orderbook
   ](
     ((src:dataset[orderbook  with matching]) => {
       val book = src.fetch[orderbooktype,orderbook].typedInitVal
@@ -69,10 +69,10 @@ object Order {
 
 
   type matchtype = order => (order,Seq[order])
-  class matching extends recSim[
+  class matching extends rsim[
     matchtype,
-    matching,
-    matching with orderbook
+    matching with orderbook,
+    matching
   ]((
     (src:dataset[matching with orderbook]) => {
       val bookfunc = src.fetch[orderbooktype,orderbook].typedInitVal
@@ -107,10 +107,10 @@ object Order {
   case class Fill(p:GloballyOrdered[_],amt:Int)
 
   type escrowtype = escrowinput => Map[Any,Seq[Fill]]
-  class escrow extends recSim[
+  class escrow extends rsim[
     escrowtype,
-    escrow,
-    orderbook with matching with escrow
+    orderbook with matching with escrow,
+    escrow
   ](
     ((src:dataset[orderbook with matching with escrow]) => {
       val lastescrowfunc = src.fetch[escrowinput => Map[Any,Seq[Fill]],escrow].typedInitVal

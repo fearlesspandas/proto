@@ -8,8 +8,8 @@ object Test {
   class clientname extends axiom[Option[String],clientname](Some("bob"))
 
   case class person(age:Int,name:String)
-  class clientvalidator extends recSim[Option[person],clientvalidator,clientage with clientname with clientvalidator](
-    ((src:dataset[clientage with clientname with clientvalidator]) => {
+  class clientvalidator extends sim[Option[person],clientage with clientname,clientvalidator](
+    ((src:dataset[clientage with clientname]) => {
       val ageOpt = src.fetch[Option[Int],clientage].typedInitVal
       val clientnameOpt = src.fetch[Option[String],clientname].typedInitVal
       (ageOpt,clientnameOpt) match {
@@ -20,7 +20,7 @@ object Test {
   )(None)
 
   case class insurance(insured:person)
-  class InsuranceValidator extends recSim[Option[insurance],InsuranceValidator,InsuranceValidator with clientvalidator with clientage with clientname](
+  class InsuranceValidator extends rsim[Option[insurance],InsuranceValidator with clientvalidator with clientage with clientname,InsuranceValidator](
     ((src:dataset[InsuranceValidator with clientvalidator with clientage with clientname]) => {
       src.calc[Option[person],clientvalidator].typedInitVal match{
         case Some(prsn) => Some(insurance(prsn))

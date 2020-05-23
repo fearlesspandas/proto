@@ -49,39 +49,42 @@ package object impl {
 
   class sim[
     initType,
-    -A <: dataset[_],
-    B <: model[_, B] with InitialType[initType, B] with reset[initType, B]
+    -dependencies <: dataset[_],
+    self <: model[_, self] with InitialType[initType, self] with reset[initType, self]
   ](
+    override val iterateFrom: dataset[dependencies] => dataset[self]
+   )
+   (
      override val typedInitVal: initType
    )(
-     implicit override val iterateFrom: dataset[A] => dataset[B], override val tag: ClassTag[B], dprov: provider[_]
-   ) extends model[A, B] with InitialType[initType, B] with reset[initType, B] {
+     implicit override val tag: ClassTag[self], dprov: provider[_]
+   ) extends model[dependencies, self] with InitialType[initType, self] with reset[initType, self] {
     override lazy val initialVal: Any = this.typedInitVal
     override lazy val prov: provider[_] = dprov.put(this.name, this.initialVal)
-    def applyFromData[U <: dataset[_] with InitialType[tpe, _]](initial: tpe, p: provider[_]): dataset[B with U] with InitialType[tpe, _] = {
-      new sim[initType, A, B](initial)(iterateFrom, tag, p).asInstanceOf[dataset[B with U] with InitialType[tpe, _]]
+    def applyFromData[U <: dataset[_] with InitialType[initType, _]](initial: initType, p: provider[_]): dataset[self with U] with InitialType[initType, _] = {
+      new sim[initType, dependencies, self](iterateFrom)(initial)(tag, p).asInstanceOf[dataset[self with U] with InitialType[initType, _]]
     }
-    override def apply[U <: dataset[_] with InitialType[tpe, _]](initval: dataset[U] with InitialType[tpe, _], p: provider[_]): dataset[B with U] with InitialType[tpe, _] = this.applyFromData(initval.typedInitVal, p)
-    override def reset2(initial: initType): dataset[B] with reset[initType, B] = {
+    override def apply[U <: dataset[_] with InitialType[tpe, _]](initval: dataset[U] with InitialType[tpe, _], p: provider[_]): dataset[self with U] with InitialType[initType, _] = this.applyFromData(initval.typedInitVal, p)
+    override def reset2(initial: initType): dataset[self] with reset[initType, self] = {
       implicit val newprov = this.prov.put(this.name, initial)
-      new sim[initType, A, B](initial)(iterateFrom, tag, this.prov.put(this.name, initial)).asInstanceOf[B with reset[initType, B]]
+      new sim[initType, dependencies, self](iterateFrom)(initial)( tag, this.prov.put(this.name, initial)).asInstanceOf[self with reset[initType, self]]
     }
-    override def reset(initial: dataset[_] with InitialType[initType, _]): dataset[B] with reset[initType, B] = this.reset2(initial.typedInitVal)
+    override def reset(initial: dataset[_] with InitialType[initType, _]): dataset[self] with reset[initType, self] = this.reset2(initial.typedInitVal)
     override def dataprovider(): provider[_] = this.prov
-    override def clone(p: provider[_]): dataset[B] = this.applyFromData(this.typedInitVal, p)
+    override def clone(p: provider[_]): dataset[self] = this.applyFromData(this.typedInitVal, p)
   }
 
-  class recSim[
+  class rsim[
     initType,
-    B <: model[_, B] with InitialType[initType, B] with reset[initType, B],
-    -A <: dataset[B]
+    -dependencies <: dataset[self],
+    self <: model[_, self] with InitialType[initType, self] with reset[initType, self]
   ](
-     override val iterateFrom: dataset[A] => dataset[B] with reset[initType, B]
+     override val iterateFrom: dataset[dependencies] => dataset[self] with reset[initType, self]
    )(
      override val typedInitVal: initType
    )(
-     implicit override val tag: ClassTag[B], prov: provider[_]
-   ) extends sim[initType, A, B](typedInitVal)(iterateFrom, tag, prov) with InitialType[initType, B] with reset[initType, B]
+     implicit override val tag: ClassTag[self], prov: provider[_]
+   ) extends sim[initType, dependencies, self](iterateFrom)(typedInitVal)(tag, prov) with InitialType[initType, self] with reset[initType, self]
 
 
   class SeqLooksConvergent[self <: SeqLooksConvergent[self, _, _, _] with model[_, self] with InitialType[Boolean, self] with reset[Boolean, self],
@@ -102,7 +105,7 @@ package object impl {
      eps: Double, N: Int
    )(
      implicit override val tag: ClassTag[self], tagu: ClassTag[target] //,ctx:provider[_]
-   ) extends recSim[Boolean, self, dep with self with target](
+   ) extends rsim[Boolean, dep with self with target, self](
     (
       (src: dataset[dep with self with target]) => {
         val wasConvergent = src.fetchBool[self]
@@ -137,7 +140,7 @@ package object impl {
      override val iterateFrom: dataset[dep with self with target] => dataset[self] with reset[initType, self])(override val typedInitVal: initType)
    (
      implicit val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
-   ) extends recSim[initType, self, dep with self with target](iterateFrom)(typedInitVal)(tagself, dprov)
+   ) extends rsim[initType,  dep with self with target,self](iterateFrom)(typedInitVal)(tagself, dprov)
 
 
   class flatten[
@@ -173,13 +176,13 @@ package object impl {
   }
   class combine[
     self<:combine[self,A,_,typeA,B,_,typeB],
-    A<:recSim[typeA,A,A with depA],
+    A<:rsim[typeA,A with depA,A],
     depA<:dataset[_],
     typeA,
-    B<:recSim[typeB,B,B with depB],
+    B<:rsim[typeB,B with depB,B],
     depB<:dataset[_],
     typeB
-  ](implicit taga:ClassTag[A],tagb:ClassTag[B],tagself:ClassTag[self]) extends recSim[dataset[A with B],self,self with depA with depB with A with B](
+  ](implicit taga:ClassTag[A],tagb:ClassTag[B],tagself:ClassTag[self]) extends rsim[dataset[A with B],self with depA with depB with A with B,self](
     ((src:dataset[self with depA with depB with A with B]) => {
       //(src.calc[typeA,A].typedInitVal,src.calc[typeB,B].typedInitVal)
       src.calc[typeA,A].calc[typeB,B].asInstanceOf[dataset[A with B]]

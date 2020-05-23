@@ -1,7 +1,7 @@
 package Typical.implicits
 
 import Typical.core.Typeable.{InitialType, dataset, _}
-import Typical.impl.{bind, flatten, recSim}
+import Typical.impl.{bind, flatten, rsim}
 
 import scala.reflect.ClassTag
 
