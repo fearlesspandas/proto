@@ -33,7 +33,7 @@ object Typeable {
 
   trait InitialType[A,+B<:dataset[_]]{
     type tpe = A
-    val typedInitVal:A
+    val value:A
     def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_],prov:provider[_]): dataset[B with U] with InitialType[tpe,_]
     def applyFromData[U<:dataset[_] with InitialType[A,_]](initial: A,prov:provider[_]): dataset[B with U] with InitialType[A,_]
     implicit val prov:provider[_]

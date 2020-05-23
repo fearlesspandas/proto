@@ -114,7 +114,7 @@ object Test {
     println(s"othersum: ${s.map(d => d.fetchDouble[othersum].initialVal)}")
     println(s"statesequence: ${s.map(d => d.dataprovider().statestore.size)}")
     val t1 = System.nanoTime()
-    println("dat: " + dat.typedInitVal)
+    println("dat: " + dat.value)
     println("Total time elapsed: " + (t1 - t0)/1000000000.0 + "Sec")
   }
 }

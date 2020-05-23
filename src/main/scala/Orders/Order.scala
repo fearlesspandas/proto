@@ -43,11 +43,11 @@ object Order {
     orderbook
   ](
     ((src:dataset[orderbook  with matching]) => {
-      val book = src.fetch[orderbooktype,orderbook].typedInitVal
+      val book = src.fetch[orderbooktype,orderbook].value
       val func = (o:order) => {
         val oldbook = book(o)
         if(o == null) oldbook else {
-          val (remainingorder, matches) = src.calc[order => (order, Seq[order]), matching].typedInitVal(o)
+          val (remainingorder, matches) = src.calc[order => (order, Seq[order]), matching].value(o)
           val matchedbook = matches.foldLeft(oldbook)((bk, ord) => {
             val orderOwnerOrders = bk.getOrElse(ord.owner, Seq())
             val updatedOrders: Seq[order] = orderOwnerOrders.map(x => if (x.inKind(ord)) order(x.p, x.i, max(0, x.remaining - ord.remaining), x.owner) else x)
@@ -75,7 +75,7 @@ object Order {
     matching
   ]((
     (src:dataset[matching with orderbook]) => {
-      val bookfunc = src.fetch[orderbooktype,orderbook].typedInitVal
+      val bookfunc = src.fetch[orderbooktype,orderbook].value
       (arg:order) => {
         if (arg == null) null
         else {
@@ -113,14 +113,14 @@ object Order {
     escrow
   ](
     ((src:dataset[orderbook with matching with escrow]) => {
-      val lastescrowfunc = src.fetch[escrowinput => Map[Any,Seq[Fill]],escrow].typedInitVal
+      val lastescrowfunc = src.fetch[escrowinput => Map[Any,Seq[Fill]],escrow].value
       (escrw:escrowinput) =>
         escrw.cmd match{
           case INJECT(v:Map[Any,Seq[Fill]]) => v
           case _ =>
             val lastescrow = lastescrowfunc(escrw)
             if (escrw.ord == null) lastescrow else {
-              val (remainingorder, matchingorders) = src.fetch[matchtype, matching].typedInitVal(escrw.ord)
+              val (remainingorder, matchingorders) = src.fetch[matchtype, matching].value(escrw.ord)
               val updatedescrow = matchingorders.foldLeft(lastescrow)( (esc,ordr ) => {
                 val ownerescrow = esc.getOrElse(ordr.owner,Seq())
                 val newescrow = ownerescrow :+ Fill(escrw.ord.i,ordr.remaining)
