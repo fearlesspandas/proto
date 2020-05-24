@@ -30,6 +30,11 @@ object implicits {
     override def calc[B,U >: A <: model[A, U] with dataset[_] with InitialType[B, U]](implicit tagu: ClassTag[U]): dataset[A with U] with InitialType[B, A with U ] = {
       this.calc[B,U](this.prov)
     }
+
+    /**
+     * Used on rsims who's datatypes resemble a thunk. Unlike a traditional thunk these may have arguments, to model typesafe data input.
+     * flatCalc will update the thunk-like value to a thunk pointing to the functions output given some input data.
+     */
     def flatCalc[X>:A <:model[A, X] with dataset[_] with InitialType[input => out, X],input,out](in:input)(implicit tagu: ClassTag[X]): dataset[A with X] with InitialType[input => out, A with X ] = {
       val res = this.calc[input=> out,X](this.prov).value(in)
       a.include[input => out,X](_ => res)

@@ -80,7 +80,7 @@ object Test {
   /**
    * Prepare the context provider with the initial values
    */
-  implicit val ctx = myprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum].register[vartest]
+  implicit val ctx = baseprovider.register[A].register[X].register[XSum].register[Y].register[YConverges].register[XSumConverges].register[othersum].register[ysum].register[vartest]
   /**
    * Now we are all set to build our simulation and run it. Here we're wrapping many sims in sequence for easy experimentation with parrallel processing of sims.
    *

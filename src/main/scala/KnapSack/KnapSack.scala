@@ -45,7 +45,7 @@ object KnapSack {
       }).set[KnapSack])(_ => 0)
 
     def main(args: Array[String]): Unit = {
-      val dat = data[KnapSack with Items](myprovider.register[KnapSack].register[Items])
+      val dat = data[KnapSack with Items](baseprovider.register[KnapSack].register[Items])
       val t0 = System.nanoTime()
       //Recall the number of calc iterations determines the max number of items
       //Here we are optimizing for up to 2 items at most

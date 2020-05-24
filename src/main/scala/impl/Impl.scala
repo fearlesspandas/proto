@@ -8,7 +8,7 @@ import Typical.implicits.implicits._
 
 package object impl {
 
-  implicit object myprovider extends number
+  implicit object baseprovider extends number
 
 
   case class axiom[B, A <: ax[A] with InitialType[B, A]](override val value: B)(override implicit val tag: ClassTag[A], provi: provider[_]) extends ax[A] with InitialType[B, A] {
