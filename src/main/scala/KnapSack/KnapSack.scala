@@ -33,19 +33,19 @@ object KnapSack {
       item(1,1),
       item(1,9)
     ))
-    class KnapSack extends recSim[Double => Double,KnapSack,KnapSack with Items](
+    class KnapSack extends rsim[Double => Double,KnapSack with Items,KnapSack](
       //Additional resources explaining unbounded knap-sack
-      //https://en.wikipedia.org/wiki/Knapsack_problem#Dynamic_programming_in-advance_algorithmj
+      //https://en.wikipedia.org/wiki/Knapsack_problem#Dynamic_programming_in-advance_algorithm
       ((src:dataset[KnapSack with Items]) => {
-        val prevMap = src.fetch[Double => Double,KnapSack].typedInitVal
-        val items = src.fetch[Seq[item],Items].typedInitVal
+        val prevMap = src.fetch[Double => Double,KnapSack].value
+        val items = src.fetch[Seq[item],Items].value
         (w:Double) => {
           items.map(i => if(w - i.weight > 0) i.value + prevMap(w - i.weight) else 0d).sorted.reverse.head
         }
       }).set[KnapSack])(_ => 0)
 
     def main(args: Array[String]): Unit = {
-      val dat = data[KnapSack with Items](myprovider.register[KnapSack].register[Items])
+      val dat = data[KnapSack with Items](baseprovider.register[KnapSack].register[Items])
       val t0 = System.nanoTime()
       //Recall the number of calc iterations determines the max number of items
       //Here we are optimizing for up to 2 items at most
@@ -54,7 +54,7 @@ object KnapSack {
         .calc[Double => Double,KnapSack]
         //add another calc[Double => Double,KnapSack] here
         //to see how 3 items will change the optimum
-        .typedInitVal
+        .value
       //recall the output of the KnapSack type
       //is a a function that will solve
       //for two items under a provided weight

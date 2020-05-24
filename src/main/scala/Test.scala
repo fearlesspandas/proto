@@ -14,9 +14,9 @@ object Test {
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    val dat = data[tickercurl with tickerdf with enrichedData](myprovider.register[tickercurl].register[tickerdf].register[enrichedData])
+    val dat = data[tickercurl with tickerdf with enrichedData](baseprovider.register[tickercurl].register[tickerdf].register[enrichedData])
     val updateddata = (0 to 2).foldLeft[dataset[tickercurl with tickerdf with enrichedData]](dat)((data,curr) => {Thread.sleep(1000);data.calc[String,tickercurl]} )
-    val res = updateddata.calc[DataFrame,enrichedData].typedInitVal
+    val res = updateddata.calc[DataFrame,enrichedData].value
     println(s"Result:")
     res.show(false)
     val t1 = System.nanoTime()
@@ -28,7 +28,7 @@ object Test {
     val spark = SparkSession.builder.master("local[*]").getOrCreate()
     val t0 = System.nanoTime()
     val dat = data[biddf with bookcurl with askdf with price with volume with quantity](
-      myprovider
+      baseprovider
         .register[biddf]
         .register[bookcurl]
         .register[askdf]
@@ -36,8 +36,8 @@ object Test {
         .register[volume]
         .register[quantity]
     )
-    val res = dat.calc[DataFrame,biddf].typedInitVal
-    val res2 = dat.calc[DataFrame,askdf].typedInitVal
+    val res = dat.calc[DataFrame,biddf].value
+    val res2 = dat.calc[DataFrame,askdf].value
     //res.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-bids")
     //res2.coalesce(1).write.option("mode","overwrite").csv("src/main/resources/ltc-pricedata-asks")
     println(s"Result: $res")

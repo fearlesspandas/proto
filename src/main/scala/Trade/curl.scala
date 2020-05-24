@@ -9,7 +9,6 @@ import javax.crypto.spec.SecretKeySpec
 import scala.io.Source
 import Typical.impl._
 import Typical.core.Typeable.dataset
-import Typical.impl.recSim
 import Typical.implicits.implicits._
 
 import scala.reflect.ClassTag
@@ -38,7 +37,7 @@ object curl {
               bearertoken:String,
               passphrase:String,
               append:Boolean
-            )(implicit tag:ClassTag[self]) extends recSim[String, self, self](
+            )(implicit tag:ClassTag[self]) extends rsim[String, self, self](
     ((src: dataset[self]) => {
       val timestamp = System.currentTimeMillis()/1000
       val sig = signature(bookpath,timestamp)

@@ -9,118 +9,130 @@ import Typical.implicits.implicits._
 import scala.collection.immutable.HashMap
 //import Typical.implicits.implicits._
 object Order {
-
+  import scala.math._
   //below is an implementation of a basic order matching system
   //defined very generally across essentially arbitrary types.
   //Orders in this system are then placed by calling the standard
   //calc method on the expected type of the order
+  //case class order()
 
-  //case class order[A,B]()
-
-  trait GloballyOrdered[A<:Ordered[A]] extends Ordered[A] {
+  trait GloballyOrdered[A] extends Ordered[A] {
     def compareAny(that:Any):Int
     override def compare(that: A): Int = compareAny(that)
   }
 
-  case class order[price <: GloballyOrdered[price], item<:GloballyOrdered[item]](p: price, i: item, remaining: Int,owner:String) {
-    def isFilled(other:order[item,price]) = {
-      other match {
-        case oth@order(_:item,_:price,_,_) => (this.p.compareAny(oth.i) >= 0) && this.i.compareAny(oth.p) >= 0 && this.remaining > 0 //&& this.owner != other.owner
-        case _ => false
-      }
+  case class order(p: GloballyOrdered[_], i: GloballyOrdered[_], remaining: Int,owner:String) {
+    def isFilled(other:order) = {
+
+      (this.p.compareAny(other.i) >= 0) && this.i.compareAny(other.p) >= 0 && this.remaining > 0 //&& this.owner != other.owner
+
+
     }
+    def inKind(other:order):Boolean = if(other.p.compareAny(p) == 0  && other.i.compareAny(i) == 0 && other.owner == owner) true else false
+
 
   }
-  def rawType[A<:GloballyOrdered[A],B<:GloballyOrdered[B]](
-                                                            src:dataset[
-                                                              orderbook[B,A]
-                                                                with matching[A,B]
-                                                                with matching[B,A]
-                                                                with orderbook[A,B]
-                                                              //                                                                with escrowadd[A,B]
-                                                              //                                                                with escrowadd[B,A]
-                                                            ],
-                                                            value:order[A,B]
-                                                          ):dataset[
-    orderbook[B,A]
-      with matching[A,B]
-      with matching[B,A]
-      with orderbook[A,B]
-    //      with escrowadd[A,B]
-    //      with escrowadd[B,A]
-  ]
-    with InitialType[_,_]= {
-    src
-      .include[order[A,B],dataQueue[A,B]](value)
-      .calc[Seq[order[B,A]],matching[A,B]]
-      .calc[orderbooktype[A,B],orderbook[A,B]]
-    //.calc[escrowtype[A,B],escrowadd[A,B]]
-  }
 
+  type orderbooktype  = order => Map[Any,Seq[order]]
 
-
-  class dataQueue[A<:GloballyOrdered[A],B<:GloballyOrdered[B]] extends axiom[order[A,B],dataQueue[A,B]](null)
-
-  type orderbooktype[A<:GloballyOrdered[A],B<:GloballyOrdered[B]]  = order[A,B] => Map[Any,Seq[order[A,B]]]
-
-  class orderbook[A<:GloballyOrdered[A],B<:GloballyOrdered[B]] extends recSim[
-    orderbooktype[A,B],
-    orderbook[A,B],
-    orderbook[A,B] with dataQueue[A,B] with matching[A,B]
+  class orderbook extends rsim[
+    orderbooktype,
+    orderbook with matching,
+    orderbook
   ](
-    ((src:dataset[orderbook[A,B] with dataQueue[A,B] with matching[A,B]]) => {
-      val book = src.fetch[orderbooktype[A,B],orderbook[A,B]].typedInitVal
-      (o:order[A,B]) => if(o == null) book(null) else {
-        val oldbook = book(null)
-        oldbook.updated(o.owner,oldbook.getOrElse(o.owner,Seq()) :+ o)
+    ((src:dataset[orderbook  with matching]) => {
+      val book = src.fetch[orderbooktype,orderbook].value
+      val func = (o:order) => {
+        val oldbook = book(o)
+        if(o == null) oldbook else {
+          val (remainingorder, matches) = src.calc[order => (order, Seq[order]), matching].value(o)
+          val matchedbook = matches.foldLeft(oldbook)((bk, ord) => {
+            val orderOwnerOrders = bk.getOrElse(ord.owner, Seq())
+            val updatedOrders: Seq[order] = orderOwnerOrders.map(x => if (x.inKind(ord)) order(x.p, x.i, max(0, x.remaining - ord.remaining), x.owner) else x)
+            bk.updated(ord.owner, updatedOrders)
+          })
+          val remainingownerOrders = matchedbook.getOrElse(remainingorder.owner, Seq())
+          val hasInKindOrder = remainingownerOrders.filter(_.inKind(remainingorder)).size > 0
+          val remainingownerupdatedorders = hasInKindOrder match {
+            case true => remainingownerOrders.map(x => if (x.inKind(remainingorder)) order(x.p, x.i, max(0, x.remaining + remainingorder.remaining), x.owner) else x)
+            case _ => remainingownerOrders :+ remainingorder
+          }
+          matchedbook.updated(remainingorder.owner,remainingownerupdatedorders)
+        }
       }
-    }
-      ).set[orderbook[A,B]]
+      func
+    }).set[orderbook]
   )(_ => HashMap())
 
 
-  //  type escrowtype[A<:GloballyOrdered[A],B<:GloballyOrdered[B]]  = _ => Map[Any,Seq[order[A,B]]]
-  //
-  //  class escrowadd[A<:GloballyOrdered[A],B<:GloballyOrdered[B]] extends recSim[
-  //    escrowtype[A,B],
-  //    escrowadd[A,B],
-  //    escrowadd[A,B] with dataQueue[A,B] with matching[B,A] with orderbook[A,B]
-  //  ](
-  //    ((src:dataset[escrowadd[A,B] with dataQueue[A,B] with matching[B,A] with orderbook[A,B]]) => {
-  //      val matching = src.fetch[Seq[order[A,B]],matching[B,A]].typedInitVal
-  //      val escrow = src.fetch[escrowtype[A,B],escrowadd[A,B]].typedInitVal
-  //      val nextOrder = src.fetch[order[A,B],dataQueue[A,B]].typedInitVal
-  //      if (matching.size > 0){
-  //        val filledOrder_ = matching.head
-  //        val filledOrder = filledOrder_.copy(remaining = scala.math.min(nextOrder.remaining,filledOrder_.remaining) )
-  //        val oldEscrow = escrow.get(filledOrder.owner).getOrElse(Seq())
-  //        val newEscrow = if(oldEscrow.filter(o => o.p == filledOrder.p && o.i == filledOrder.i).size > 0) oldEscrow.collect({
-  //          case o:order[A,B] if(o.i == filledOrder.i && o.p == filledOrder.p) => o.copy(remaining = o.remaining + filledOrder.remaining);
-  //          case o:order[A,B] => o
-  //        }) else oldEscrow :+ filledOrder
-  //        escrow.updated(filledOrder.owner,newEscrow)
-  //      }else escrow
-  //      })
-  //      .set[escrowadd[A,B]]
-  //  )(HashMap())
 
-  class matching[A<:GloballyOrdered[A],B<:GloballyOrdered[B]] extends recSim[
-    order[A,B] => Seq[order[B,A]],
-    matching[A,B],
-    matching[A,B] with dataQueue[A,B] with orderbook[B,A]
+  type matchtype = order => (order,Seq[order])
+  class matching extends rsim[
+    matchtype,
+    matching with orderbook,
+    matching
   ]((
-    (src:dataset[dataQueue[A,B] with matching[A,B] with orderbook[B,A]]) => {
-      val book = src.fetch[orderbooktype[B,A],orderbook[B,A]].typedInitVal
-      val nextOrder = src.fetch[order[A,B],dataQueue[A,B]].typedInitVal
-      (arg:order[A,B]) => {
-        val order = book(order)
-        Seq[order[B,A]]()
+    (src:dataset[matching with orderbook]) => {
+      val bookfunc = src.fetch[orderbooktype,orderbook].value
+      (arg:order) => {
+        if (arg == null) null
+        else {
+          val book = bookfunc(null)
+          val initargs = (arg.remaining, Seq[order]())
+          val (unallocated, matchingorders) = book.values.flatMap(x => x).foldLeft(initargs)((acc, curr) => acc match {
+            case (remaining, orders) if (remaining > 0 && curr.isFilled(arg)) => {
+              val fillamount = min(min(arg.remaining, curr.remaining), remaining)
+              (
+                max(0, remaining - fillamount),
+                orders :+ order(curr.p, curr.i, fillamount, curr.owner)
+              )
+            }
+            case (remaining, orders) if (remaining > 0) => (remaining, orders)
+            case (0, orders) => (0, orders)
+          })
+          (order(arg.p, arg.i, unallocated, arg.owner), matchingorders)
+        }
       }
-      //      val matchingorders = book.values
-      //        .flatMap(x => x)
-      //        .filter(x => x.remaining > 0)
-      //        .filter(x => x.isFilled(nextOrder))
-      //      matchingorders.toSeq
-    }).set[matching[A,B]])(null)
+    }).set[matching])(null)
 
+  class EscrowOp {
+    //def apply(): EscrowOp = this.asInstanceOf[EscrowOp]
+  }
+  case class escrowinput(cmd:EscrowOp,ord:order)
+  case class INJECT[outtype](value:outtype) extends EscrowOp
+  case class ADD() extends EscrowOp
+  case class Fill(p:GloballyOrdered[_],amt:Int)
+
+  type escrowtype = escrowinput => Map[Any,Seq[Fill]]
+  class escrow extends rsim[
+    escrowtype,
+    orderbook with matching with escrow,
+    escrow
+  ](
+    ((src:dataset[orderbook with matching with escrow]) => {
+      val lastescrowfunc = src.fetch[escrowinput => Map[Any,Seq[Fill]],escrow].value
+      (escrw:escrowinput) =>
+        escrw.cmd match{
+          case INJECT(v:Map[Any,Seq[Fill]]) => v
+          case _ =>
+            val lastescrow = lastescrowfunc(escrw)
+            if (escrw.ord == null) lastescrow else {
+              val (remainingorder, matchingorders) = src.fetch[matchtype, matching].value(escrw.ord)
+              val updatedescrow = matchingorders.foldLeft(lastescrow)( (esc,ordr ) => {
+                val ownerescrow = esc.getOrElse(ordr.owner,Seq())
+                val newescrow = ownerescrow :+ Fill(escrw.ord.i,ordr.remaining)
+                esc.updated(ordr.owner,newescrow)
+              })
+              val secondupdatedescrow = matchingorders.foldLeft(updatedescrow)( (esc,ordr ) => {
+                val fillingescrow = esc.getOrElse(escrw.ord.owner,Seq())
+                val filledEscrowUpdated = fillingescrow :+ Fill(escrw.ord.p,ordr.remaining)
+                esc.updated(escrw.ord.owner,filledEscrowUpdated)
+              })
+              secondupdatedescrow
+            }
+
+        }
+
+    }).set[escrow]
+  )(_ => HashMap())
 }
