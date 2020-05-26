@@ -19,7 +19,8 @@ Typical is designed to enforce type safety across
 all levels of data processing, and will do so unless
 it's paradigms are heavily violated. It's primary way
 of achieving this is by forcing the programmer to
-specify transformations on types in an unambiguous manner.
+specify transformations on types bound to data in an
+unambiguous manner.
 
 If in these transformations, type structure is not respected
 and produces side effects, or becomes ambiguous, Typical will
