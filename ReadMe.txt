@@ -136,7 +136,7 @@ RSims-------------------------------
 rsim's (or recursive sims) are essentially the same as sims, but their transformations are
 recursive in nature, meaning, they have themselves as a dependency.
 
-$ class multiDependencyRecSim extends sim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
+$ class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
    ((src:dataset[myaxiom with mysim with multiDependencyRecSim]) => {
         val myax = src.fetch[Double,myaxiom].value
         val mysim = src.fetch[Double,otherax].value
@@ -208,6 +208,10 @@ Suppose we want to calculate a value for multiDependencyRecSim. It has multiDepe
 itself a sim type. Because we decided to use 'fetch' instead of 'calc' in multiDependencyRecSim's function definition,
 to retrieve the value for multiDependencySim, we need to calc multiDependencySim first, otherwise when it's fetched in
 multiDependencyRecSim it will just contain it's default starting value.
+If we wanted to avoid this necessity, we could replace the 'fetch' call on multiDependencySim to a 'calc' call, in the
+definition of multiDependencyRecSim. Recall however that 'calc' calls within a transformation are encapsulated and do not
+update state for any type that isn't the one they're defined for. So if multiDependencySim was itself recursive, and had
+values that changed after calls to 'calc', we would not be able to rely on this internal call to update it's global state.
 
 $ val updatedDataset = dat.calc[Double,multiDependencySim].calc[Double,multiDependencyRecSim]
 $ val updatedRecSimVal = updatedDataset.value //value of multiDependencyRecSim after transformation
