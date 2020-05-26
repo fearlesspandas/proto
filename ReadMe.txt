@@ -83,7 +83,7 @@ For exaample, building an axiom that holds a Double is done like so:
 
 $class myaxiom extends axiom[Double,myaxiom](1d)
 
-This axiom will always have the value 0 in any calculations that reference it and cannot be changed
+This axiom will always have the value 1 in any calculations that reference it and cannot be changed
 by a transformation.
 
 Sims------------
