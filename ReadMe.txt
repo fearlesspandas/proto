@@ -106,7 +106,7 @@ Each of these structures are extensions of the more general type, dataset.
 In general every transformation defined in typical is done so as dataset[sometype] => dataset[othertype]
 
 Axioms----------
-axiom's are simply typed data that requires no processing.
+axiom's are simply typed data that requires no processing, or is processed outside of Typical.
 
 Their type paramater structure follows:
 axiom[<datatype>,selfType]
@@ -123,6 +123,11 @@ Sims------------
 sim's are data that have dependencies on other data via some transformation, but the transformation is
 not recursive (in contrast to rsims' with are recursive). They require you to specify their dependencies
 (a dataset or some combination of datasets) as well as the transformation from the dependency data.
+
+Their type parameter structure is as follows:
+sim[<datatype>,dependencyType,selfType]
+where selfType should always be the class extending sim, and dependencyType is the combination of the types
+of our data dependencies. The base dependencies can be any axiom,sim,or rsim
 
  For example, if we wanted to build a calculation with our above axiom as a dependency we would do so as follows:
 
@@ -146,7 +151,7 @@ $ class isEven extends sim[Boolean,myaxiom,isEven](
     }).set[isEven]
 )(0d)
 
-Additionally, we can include multiple dependencies in a sim by combining their types like so
+Additionally, we can include multiple dependencies in a sim by combining their types using 'with'
 
 $ class otherAxiom extends axiom[Double,otheraxiom](20d)
 
@@ -168,6 +173,11 @@ to a function of type dataset[myaxiom with otheraxiom] => dataset[multiDependenc
 RSims-------------------------------
 rsim's (or recursive sims) are essentially the same as sims, but their transformations are
 recursive in nature, meaning, they have themselves as a dependency.
+
+Their type parameter structure is as follows:
+rsim[<datatype>,dependencyType,selfType]
+where selfType should always be the class extending sim, and dependencyType is the combination of the types
+of our data dependencies. The base dependencies can be any axiom,sim,or rsim, and must include the selfType
 
 $ class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
    ((src:dataset[myaxiom with mysim with multiDependencyRecSim]) => {
