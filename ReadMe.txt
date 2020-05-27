@@ -84,7 +84,7 @@ state through the chaining described above, is immediately tail recursive in nat
 general this is a useful mental model to describe what a chain of Typical calculations is doing.
 Like tail recursion, Typicals calculations reduce to running the programmer-defined calculations
 on a previous iteration of data, then (possibly) updating some of that data in place. In further
-calculations down the chain, all other calculations will have be able to retrieve the updated data.
+calculations down the chain, the updated data will be available and feed into future results.
 
 The other piece of the puzzle Typical handles for us, is verifying whether we can actually
 execute a particular calculation on a given dataset. What that means is, loosely speaking,
