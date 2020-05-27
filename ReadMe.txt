@@ -65,6 +65,38 @@ Disadvantages:
     - type-safe processing fundamentally requires different design paradigms
     to arrive at clean solutions
 
+--------High-Level Overview of Typical data flows----------
+Typical is designed to easily build up stateful behavior in a clean
+encapsulated way without side effects. To do this, in general the process
+is to start with some initial dataset 'dat', run a calculation on it to produce new data,
+then encapsulate those results in an updated version of dat. Those results are then propagated
+forward to later calculations like so
+    dat ----some calc ----> dat2 ------some calc ----> dat3 ...
+Typical can verify at compile time for every calculation step all the data dependencies for
+that calculation are met.
+
+The programmer has two main jobs when using typical. Binding data to types, and defining the
+calculation functions. Those are discussed in more detail in the next section, and more complex
+examples can be found throughout this repo (see see Test.scala or KnapSack/Orders packages).
+
+It should be noted that because of how state encapsulation works, the way Typical builds
+state through the chaining described above, is immediately tail recursive in nature. In
+general this is a useful mental model to describe what a chain of Typical calculations is doing.
+Like tail recursion, Typicals calculations reduce to running the programmer-defined calculations
+on a previous iteration of data, then (possibly) updating some of that data in place. In further
+calculations down the chain, all other calculations will have be able to retrieve the updated data.
+
+The other piece of the puzzle Typical handles for us, is verifying whether we can actually
+execute a particular calculation on a given dataset. What that means is, loosely speaking,
+ if we had a calculation defined as follows
+
+        dataset__A -----f:Calc_With_dependency_X ----> dataset_B
+
+Where we're transforming dataset_A into dataset_B through f, where f has a dependency on some data X.
+Suppose then we had a concrete dataset 'dat' which does not contain data for X. Then if somewhere in our
+application we try to invoke f on dat (either within a Typical calculation defining further data transformations,
+or outside of one such as an application entry point), we will get a compile time error.
+
 
 --------Getting Started---------------
 Typical uses 3 main structures to define it's calculations.
