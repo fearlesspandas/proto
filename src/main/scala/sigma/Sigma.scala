@@ -26,7 +26,10 @@ object sigma {
   class three extends axiom[Double,three](3)
   type querybase = one with two
 
-  class Sigma[T>:querybase<:queryset[Double],self<:modelType[Double,self]](
+  class Sigma[
+    T>:querybase<:queryset[Double],
+    self<:modelType[Double,self]]
+  (
                                                                                implicit tag:ClassTag[T],
                                                                                ttag:ru.TypeTag[T],
                                                                                tagself:ClassTag[self],
