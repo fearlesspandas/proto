@@ -33,6 +33,7 @@ object KnapSack {
       item(1,1),
       item(1,9)
     ))
+
     class KnapSack extends rsim[Double => Double,KnapSack with Items,KnapSack](
       //Additional resources explaining unbounded knap-sack
       //https://en.wikipedia.org/wiki/Knapsack_problem#Dynamic_programming_in-advance_algorithm

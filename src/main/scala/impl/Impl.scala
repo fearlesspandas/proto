@@ -1,10 +1,10 @@
 package Typical
 
-import Typical.core.Typeable._
-
+import Typical.core.Typeable.{InitialType, model, reset, _}
+import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
-
 import Typical.implicits.implicits._
+import sigma.{one, two}
 
 package object impl {
 
@@ -27,7 +27,6 @@ package object impl {
 
     override def clone(p: provider[_]): dataset[A] = this.applyFromData(this.value, p)
   }
-
 
   case class data[+A <: dataset[_]](dprov: provider[_], override val value: Any = null)(implicit tag: ClassTag[A]) extends dataset[A] with InitialType[Any, A] {
     override val name = ""
@@ -94,7 +93,7 @@ package object impl {
   ](
      eps: Double, N: Int
    )(
-     implicit override val tag: ClassTag[self], tagu: ClassTag[target], tagsum: ClassTag[targetsum] //,ctx:provider[_]
+     implicit override val tag: ClassTag[self], tagu: ClassTag[target], tagsum: ClassTag[targetsum],ttagself:ru.TypeTag[self],ttagu:ru.TypeTag[targetsum] //,ctx:provider[_]
    ) extends LooksConvergent[self, dep with targetsum with target, targetsum](eps, N)
 
   class LooksConvergent[
@@ -104,7 +103,7 @@ package object impl {
   ](
      eps: Double, N: Int
    )(
-     implicit override val tag: ClassTag[self], tagu: ClassTag[target] //,ctx:provider[_]
+     implicit override val tag: ClassTag[self], tagu: ClassTag[target],ttagself:ru.TypeTag[self],ttagu:ru.TypeTag[target] //,ctx:provider[_]
    ) extends rsim[Boolean, dep with self with target, self](
     (
       (src: dataset[dep with self with target]) => {
@@ -120,7 +119,7 @@ package object impl {
   class sum[
     self <: sum[self, _, _] with model[_, self] with InitialType[Double, self] with reset[Double, self],
     dep <: dataset[_], target <: model[dep, target] with InitialType[Double, target]
-  ](implicit override  val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_]
+  ](implicit override  val tagtarget: ClassTag[target], tagself: ClassTag[self], dprov: provider[_],ttagtarget:ru.TypeTag[target],ttagself:ru.TypeTag[self]
    ) extends bind[Double,self,dep,target](
     (
       (src: dataset[dep with self with target]) => {
@@ -149,7 +148,7 @@ package object impl {
     inputType,
     A <: model[dep,A] with InitialType[inputType => flatout, A],
     underlying<:dataset[_] with InitialType[_,_]
-  ](implicit tagA:ClassTag[A] )extends axiom[
+  ](implicit tagA:ClassTag[A] ,ttag:ru.TypeTag[A])extends axiom[
     (dataset[underlying with A with dep],inputType) => dataset[underlying with A with dep] with InitialType[inputType => flatout,underlying],
     flatten[flatout,dep,inputType,A,underlying]
   ](
@@ -163,7 +162,7 @@ package object impl {
     underlyingdata<:dataset[_] with InitialType[_,_]
   ](a:dataset[underlyingdata])
   {
-    def toFlat[U>:underlyingdata<:model[underlyingdata,U] with InitialType[inputType => flatout, U],inputType,flatout](implicit tagu:ClassTag[U]) = {
+    def toFlat[U>:underlyingdata<:model[underlyingdata,U] with InitialType[inputType => flatout, U],inputType,flatout](implicit tagu:ClassTag[U],ttag:ru.TypeTag[U]) = {
       new flatten[
         flatout,
         underlyingdata,
@@ -182,7 +181,7 @@ package object impl {
     B<:rsim[typeB,B with depB,B],
     depB<:dataset[_],
     typeB
-  ](implicit taga:ClassTag[A],tagb:ClassTag[B],tagself:ClassTag[self]) extends rsim[dataset[A with B],self with depA with depB with A with B,self](
+  ](implicit taga:ClassTag[A],tagb:ClassTag[B],tagself:ClassTag[self],ttaga:ru.TypeTag[A],ttagb:ru.TypeTag[B],ttagself:ru.TypeTag[self]) extends rsim[dataset[A with B],self with depA with depB with A with B,self](
     ((src:dataset[self with depA with depB with A with B]) => {
       //(src.calc[typeA,A].typedInitVal,src.calc[typeB,B].typedInitVal)
       src.calc[typeA,A].calc[typeB,B].asInstanceOf[dataset[A with B]]

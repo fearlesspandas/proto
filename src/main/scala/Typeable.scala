@@ -3,11 +3,42 @@ package Typical.core;
 import scala.reflect.{ClassTag, classTag}
 
 import scala.collection.immutable.HashMap
-
+import scala.reflect.runtime.{universe => ru}
+import ru._
 object Typeable {
+  type modelType[init,self<:model[_,self] with reset[init,self] with InitialType[init,self]] = model[_,self] with reset[init,self] with InitialType[init,self]
+  type queryset[init] = dataset[_] with InitialType[init,_]
+  trait wrappedArgs[A]
+  val m = ru.runtimeMirror(getClass.getClassLoader)
+  def build[A](implicit tagA:ClassTag[A],ttaga:ru.TypeTag[A]):A = {
+    //classOf[A].newInstance().asInstanceOf[A]
+    val classPerson = ru.typeOf[A].typeSymbol.asClass
+    tagA.runtimeClass.newInstance().asInstanceOf[A]
 
-  def build[A](implicit tagA:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
-  def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A].runtimeClass.getSimpleName()
+//    val classType = typeOf[A].typeSymbol.asClass
+//    val baseClassType = typeOf[wrappedArgs[_]].typeSymbol.asClass
+//    val baseType = internal.thisType(classType).baseType(baseClassType)
+//    baseType.typeArgs.head
+
+    //    //classPerson.asMethod
+//    val cm = m.reflectClass(classPerson)
+//    ru.RuntimeClassTag[A]
+//    val ctor = ru.typeOf[A].decl(ru.termNames.CONSTRUCTOR).asMethod
+//    val ctorm = cm.reflectConstructor(ctor)
+//    ctorm.apply().asInstanceOf[A]
+//    val thing = classTag[A]
+//      .runtimeClass
+//      val res = thing.newInstance()
+//        val res2 = res
+//      .asInstanceOf[A]
+//    res2
+  }
+//  def buildRec[A[_]]:A[_] = {
+//
+//  }
+  def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A]
+    .runtimeClass
+    .getSimpleName()
 
   //Data Accessor/consistency maintainer
   trait provider[-U] {
@@ -24,10 +55,10 @@ object Typeable {
       val ret = this.statefulmap.get(name)
       ret
     }
-    def getAs[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
+    def getAs[U<:dataset[_],as](implicit tag:ClassTag[U],ttag:ru.TypeTag[U]):as = {
       this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
     }
-    def getStateAs[U<:dataset[_],as](n:Int)(implicit tag:ClassTag[U]):as = {
+    def getStateAs[U<:dataset[_],as](n:Int)(implicit tag:ClassTag[U],ttag:ru.TypeTag[U]):as = {
       val key = build[U].name
       if (n < this.statestore(key).size) this.statestore(key)(n).asInstanceOf[as] else null.asInstanceOf[as]
     }
