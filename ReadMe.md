@@ -10,6 +10,7 @@ into a subdirectory of your existing project. If you just want to try out Typica
 you can clone this repository and start modifying the Test.scala file in the root
 folder, or build your own main class (see Test.scala as an example). To build Typical
 you should have the following installed:
+
     - sbt
     - scala 2.12.x
 
