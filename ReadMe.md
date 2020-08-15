@@ -107,7 +107,7 @@ or outside of one such as an application entry point), we will get a compile tim
 
 ## --------Getting Started---------------
 Typical uses 3 main structures to define it's calculations.
-They are: axiom, sim, and rsim. These types in they're full functionality
+They are: axiom, sim, and rsim. These types in their full functionality
 are imported like so:
 
 ```
