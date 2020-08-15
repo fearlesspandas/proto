@@ -165,9 +165,9 @@ The function defined within mySim must be a function of type
 ```
 f:dataset[myaxiom] => Double.
 ```
-In general for sim's holding data of type <datatype>, you would provide a function of type
+In general for sim's holding data of type **T**, you would provide a function of type
 ```
- dataset[dependencies] => <datatype>.
+ dataset[dependencies] => T.
 ```
 The datatype for sim can be any type at all and does not have to match the datatype of it's dependencies. For example we could define
 a sim like so
