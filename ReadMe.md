@@ -225,7 +225,11 @@ There is also a third method, 'include' which allows the overwrite of state.
 
 They are used as follows:
 
-Suppose: dat:dataset[<some combination of datasets through 'with'>]
+Suppose that 
+ ``
+dat:dataset[<some combination of datasets through 'with'>]
+``
+####Operations:
     -**fetch**:
         dat.fetch[<datatype_A>,A<:dataset[_]] - returns dataset A with the context of dat. It's 'value' paramater will
         be the most recent value for A in dat's context. If dat is not of type dataset[A], i.e. dat does not contain A,
