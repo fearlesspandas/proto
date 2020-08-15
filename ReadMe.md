@@ -4,7 +4,7 @@ branches of this repo
 
 
 
-##-----------Building Typical-----------------
+## -----------Building Typical-----------------
 To build and use Typical in another project, currently you must clone this repo,
 into a subdirectory of your existing project. If you just want to try out Typical,
 you can clone this repository and start modifying the Test.scala file in the root
@@ -14,7 +14,7 @@ you should have the following installed:
     -scala 2.12.x
 
 
-##-----------Typical Use Case---------------------
+## -----------Typical Use Case---------------------
 Typical is designed to enforce type safety across
 all levels of data processing, and will do so unless
 it's paradigms are heavily violated. It's primary way
@@ -50,7 +50,7 @@ would if not using Typical.
 It should be noted that typesafe processing in the real world, has both advantages
 and disadvantages for the lay-programmer, which should be weighed carefully
 
-###Advantages:
+### Advantages:
     -near complete reduction of runtime errors
     -rigorous application structure with no side effects
     -complete encapsulation of state
@@ -58,7 +58,7 @@ and disadvantages for the lay-programmer, which should be weighed carefully
     inconsistencies at compile time
     -very clean solutions for problems that are obviously recursive in nature
     -provides a paradigm for distributed processing that's very intuitive to reason about
-###Disadvantages:
+### Disadvantages:
     - Can be difficult to implement a 'loose', overly general api structure
     - Supporting data injection/realtime data processing is not always obvious
     when typesafety is enforced
@@ -103,7 +103,7 @@ application we try to invoke f on dat (either within a Typical calculation defin
 or outside of one such as an application entry point), we will get a compile time error.
 
 
-##--------Getting Started---------------
+## --------Getting Started---------------
 Typical uses 3 main structures to define it's calculations.
 They are: axiom, sim, and rsim.
 
@@ -112,7 +112,7 @@ In general every transformation defined in typical takes the form of
 ``
 dataset[sometype] => dataset[othertype]
 ``
-###Axioms----------
+### Axioms----------
 axiom's are simply typed data that requires no processing, or is processed outside of Typical.
 
 Their type paramater structure follows:
@@ -128,7 +128,7 @@ class myaxiom extends axiom[Double,myaxiom](1d)
 This axiom will always have the value 1 in any calculations that reference it and cannot be changed
 by a transformation.
 
-###Sims------------
+### Sims------------
 sim's are data that have dependencies on other data via some transformation, but the transformation is
 not recursive (in contrast to rsims' with are recursive). They require you to specify their dependencies
 (a dataset or some combination of datasets) as well as the transformation from the dependency data.
@@ -193,7 +193,7 @@ to a function of type
 ``
 dataset[myaxiom with otheraxiom] => dataset[multiDependencySim].
 ``
-###RSims-------------------------------
+### RSims-------------------------------
 rsim's (or recursive sims) are essentially the same as sims, but their transformations are
 recursive in nature, meaning, they have themselves as a dependency.
 
@@ -215,7 +215,7 @@ class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDe
 ``
 
 
-###Running our calculations through chaining----------------
+### Running our calculations through chaining----------------
 Now that we have our data transformations defined, we can provide an entry point and process some data!
 
 Recall that we already know of two methods from Typical for data interaction at our disposal; 'calc' and 'fetch'.
