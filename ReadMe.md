@@ -10,8 +10,8 @@ into a subdirectory of your existing project. If you just want to try out Typica
 you can clone this repository and start modifying the Test.scala file in the root
 folder, or build your own main class (see Test.scala as an example). To build Typical
 you should have the following installed:
-    -sbt
-    -scala 2.12.x
+    - sbt
+    - scala 2.12.x
 
 
 ## -----------Typical Use Case---------------------
@@ -71,6 +71,7 @@ encapsulated way without side effects. To do this, in general the process
 is to start with some initial dataset 'dat', run a calculation on it to produce new data,
 then encapsulate those results in an updated version of dat. Those results are then propagated
 forward to later calculations like so
+
 ``
     dat ----some calc ----> dat2 ------some calc ----> dat3 ...
 ``   
@@ -118,15 +119,19 @@ dataset[sometype] => dataset[othertype]
 axiom's are simply typed data that requires no processing, or is processed outside of Typical.
 
 Their type paramater structure follows:
+
 ```
 axiom[<datatype>,selfType]
 ```
+
 where selfType should always be the class extending axiom.
 
 For exaample, building an axiom that holds a Double is done like so:
+
 ```
 class myaxiom extends axiom[Double,myaxiom](1d)
 ```
+
 This axiom will always have the value 1 in any calculations that reference it and cannot be changed
 by a transformation.
 
@@ -136,13 +141,16 @@ not recursive (in contrast to rsims' with are recursive). They require you to sp
 (a dataset or some combination of datasets) as well as the transformation from the dependency data.
 
 Their type parameter structure is as follows:
+
 ```
 sim[<datatype>,dependencyType,selfType]
 ```
+
 where selfType should always be the class extending sim, and dependencyType is the combination of the types
 of our data dependencies. The base dependencies can be any axiom,sim,or rsim
 
  For example, if we wanted to build a calculation with our above axiom as a dependency we would do so as follows:
+
 ```
 class mySim extends sim[Double,myaxiom,mySim](
     ((src:dataset[myaxiom]) => {
@@ -152,6 +160,7 @@ class mySim extends sim[Double,myaxiom,mySim](
 )(0d)
 
 ```
+
 The function defined within mySim must be a function of type 
 ``
 f:dataset[myaxiom] => Double.
@@ -162,6 +171,7 @@ In general for sim's holding data of type <datatype>, you would provide a functi
 ``
 The datatype for sim can be any type at all and does not have to match the datatype of it's dependencies. For example we could define
 a sim like so
+
 ``
 class isEven extends sim[Boolean,myaxiom,isEven](
     ((src:dataset[myaxiom]) => {
@@ -170,10 +180,13 @@ class isEven extends sim[Boolean,myaxiom,isEven](
     }).set[isEven]
 )(0d)
 ``
+
 Additionally, we can include multiple dependencies in a sim by combining their types using 'with'
+
 ``
 class otherAxiom extends axiom[Double,otheraxiom](20d)
 ``
+
 ``
 class multiDependencySim extends sim[Double, myaxiom with otheraxiom, multiDependencySim](
    ((src:dataset[myaxiom with otheraxiom]) => {
@@ -183,28 +196,36 @@ class multiDependencySim extends sim[Double, myaxiom with otheraxiom, multiDepen
     }).set[multiDependendencySim]
    )(0d)
 ``
+
 In this example we've used two pieces of Typical's grammar to build our calculations. The first is the 'fetch' method
 which allows us to retrieve data from state, without transforming it. This is in contrast with the 'calc' method which
 transforms data, discussed below.
 
 We also use the 'set' method on the sim's function argument to convert the function provided, which is just of type 
+
 ``
 dataset[myaxiom with otheraxiom] => Double,
 ``
+
 to a function of type 
+
 ``
 dataset[myaxiom with otheraxiom] => dataset[multiDependencySim].
 ``
+
 ### RSims-------------------------------
 rsim's (or recursive sims) are essentially the same as sims, but their transformations are
 recursive in nature, meaning, they have themselves as a dependency.
 
 Their type parameter structure is as follows:
+
 ``
 rsim[<datatype>,dependencyType,selfType]
 ``
+
 where selfType should always be the class extending sim, and dependencyType is the combination of the types
 of our data dependencies. The base dependencies can be any axiom,sim,or rsim, and must include the selfType
+
 ``
 class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
    ((src:dataset[myaxiom with mysim with multiDependencyRecSim]) => {
@@ -256,6 +277,7 @@ sims within sims using various parameters without side effects. Fundamentally ch
 and how they want to structure the flow of their data transformation exactly.
 
 So while both 'fetch' and 'calc' could be chained together like so:
+
 ``
     dat.fetch.fetch.fetch
     dat.calc.calc.calc
@@ -269,6 +291,7 @@ So in the context of our above example that would look like the following:
 
 Use the convenient data class to build an initial dataset from our types defined previously
 Start by including any data you want to calc plus it's dependencies
+
 ``
 val dat = data[
         myaxiom with
@@ -281,9 +304,9 @@ val dat = data[
             .register[myaxiom]
             .register[otheraxiom]
             .register[multiDependencyRecSim]
-        )
-        ``
-        And add any datasets for which we want to include the initial values in the context.
+        ) //add any datasets for which we want to include the initial values in the context.
+        ``        
+
 
 Suppose we want to calculate a value for multiDependencyRecSim. It has multiDependencySim as a dependency which is
 itself a sim type. Because we decided to use 'fetch' instead of 'calc' in multiDependencyRecSim's function definition,
@@ -293,10 +316,12 @@ If we wanted to avoid this necessity, we could replace the 'fetch' call on multi
 definition of multiDependencyRecSim. Recall however that 'calc' calls within a transformation are encapsulated and do not
 update state for any type that isn't the one they're defined for. So if multiDependencySim was itself recursive, and had
 values that changed after calls to 'calc', we would not be able to rely on this internal call to update it's global state.
+
 ``
 val updatedDataset = dat.calc[Double,multiDependencySim].calc[Double,multiDependencyRecSim]
 val updatedRecSimVal = updatedDataset.value //value of multiDependencyRecSim after transformation
 ``
+
 We can then read values from our dataset with updated state with fetch, or we can continue to chain calc calls to further modify state.
 
 
