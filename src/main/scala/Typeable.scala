@@ -4,7 +4,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import scala.collection.immutable.HashMap
 
-object Typeable {
+package object Typeable {
 
   def build[A](implicit tagA:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
   def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A].runtimeClass.getSimpleName()

@@ -1,7 +1,6 @@
 import Typical.core.Typeable._
-import Typical.impl._
-import scala.reflect.ClassTag
-import Typical.implicits.implicits._
+import Typical.core.impl._
+import Typical.core.implicits._
 object Test {
 
   /**

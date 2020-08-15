@@ -1,10 +1,10 @@
-package Typical
+package Typical.core
 
 import Typical.core.Typeable._
 
 import scala.reflect.ClassTag
 
-import Typical.implicits.implicits._
+import Typical.core.implicits._
 
 package object impl {
 

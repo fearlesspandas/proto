@@ -1,21 +1,18 @@
-package Orders
+package Typical
 
 import Typical.core.Typeable._
-import Typical.impl._
+import Typical.core.impl._
 
-import scala.reflect.ClassTag
-import Typical.implicits.implicits._
+import Typical.core.implicits._
 
 import scala.collection.immutable.HashMap
-//import Typical.implicits.implicits._
-object Order {
+package object Order {
   import scala.math._
   //below is an implementation of a basic order matching system
   //defined very generally across essentially arbitrary types.
   //Orders in this system are then placed by calling the standard
   //calc method on the expected type of the order
 
-  //case class order()
 
   trait GloballyOrdered[A] extends Ordered[A] {
     def compareAny(that:Any):Int
@@ -23,15 +20,9 @@ object Order {
   }
 
   case class order(p: GloballyOrdered[_], i: GloballyOrdered[_], remaining: Int,owner:String) {
-    def isFilled(other:order) = {
+    def isFilled(other:order) = (this.p.compareAny(other.i) >= 0) && this.i.compareAny(other.p) >= 0 && this.remaining > 0 && this.owner != other.owner
 
-      (this.p.compareAny(other.i) >= 0) && this.i.compareAny(other.p) >= 0 && this.remaining > 0 //&& this.owner != other.owner
-
-
-    }
     def inKind(other:order):Boolean = if(other.p.compareAny(p) == 0  && other.i.compareAny(i) == 0 && other.owner == owner) true else false
-
-
   }
 
 
@@ -98,9 +89,7 @@ object Order {
     }).set[matching])(null)
 
 
-  class EscrowOp {
-    //def apply(): EscrowOp = this.asInstanceOf[EscrowOp]
-  }
+  class EscrowOp
   case class escrowinput(cmd:EscrowOp,ord:order)
   case class INJECT[outtype](value:outtype) extends EscrowOp
   case class ADD() extends EscrowOp

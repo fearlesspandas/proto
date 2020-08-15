@@ -1,11 +1,11 @@
-package Typical.implicits
+package Typical.core
 
 import Typical.core.Typeable.{InitialType, dataset, _}
-import Typical.impl.{bind, flatten, rsim}
+import Typical.core.impl.{bind, flatten, rsim}
 
 import scala.reflect.ClassTag
 
-object implicits {
+package object implicits {
 
   def calcGeneral[B,dep<:dataset[_],target >: dep <: model[dep, target] with dataset[_] with InitialType[B,target]](a:dataset[dep])(ctx:provider[_] = a.dataprovider())(implicit tagu: ClassTag[target]): dataset[dep with target] with InitialType[B, dep with target] = {
     val instance2 = build[target]

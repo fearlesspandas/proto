@@ -1,9 +1,8 @@
-package KnapSack
+package Typical
 import Typical.core.Typeable._
-import Typical.impl._
-
-import Typical.implicits.implicits._
-object KnapSack {
+import Typical.core.impl._
+import Typical.core.implicits._
+package object KnapSack {
 
     /**
      *
