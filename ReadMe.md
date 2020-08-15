@@ -65,7 +65,7 @@ and disadvantages for the lay-programmer, which should be weighed carefully
     - type-safe processing fundamentally requires different design paradigms
     to arrive at clean solutions
 
-##--------High-Level Overview of Typical data flows----------
+## --------High-Level Overview of Typical data flows----------
 Typical is designed to easily build up stateful behavior in a clean
 encapsulated way without side effects. To do this, in general the process
 is to start with some initial dataset 'dat', run a calculation on it to produce new data,
