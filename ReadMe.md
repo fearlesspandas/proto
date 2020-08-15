@@ -282,8 +282,8 @@ So while both 'fetch' and 'calc' could be chained together like so:
     dat.fetch.fetch.fetch
     dat.calc.calc.calc
 ```
-When we chain fetch, our result will contain the same values as our original dataset. But when we chain calc, if
-we have a recursive sim type in our dataset, then we may see it's value change. This is the method by which Typical
+When we chain fetch multiple times, our result will contain the same values as our original dataset. But when we chain calc multiple times,
+if we have a recursive sim type in our dataset, then we may see it's value change. This is the method by which Typical
 encapsulates state. We begin with an initial dataset with some data, then we chain together calc calls to build up our
 state in a natural way.
 
