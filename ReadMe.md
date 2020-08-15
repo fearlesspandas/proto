@@ -72,9 +72,9 @@ is to start with some initial dataset 'dat', run a calculation on it to produce 
 then encapsulate those results in an updated version of dat. Those results are then propagated
 forward to later calculations like so
 
-``
+```
     dat ----some calc ----> dat2 ------some calc ----> dat3 ...
-``   
+```   
  
 Typical can verify at compile time for every calculation step all the data dependencies for
 that calculation are met.
@@ -111,9 +111,9 @@ They are: axiom, sim, and rsim.
 Each of these structures are extensions of the more general type, dataset.
 In general every transformation defined in typical takes the form of
 
-``
+```
 dataset[sometype] => dataset[othertype]
-``
+```
 
 ### Axioms----------
 axiom's are simply typed data that requires no processing, or is processed outside of Typical.
@@ -162,32 +162,32 @@ class mySim extends sim[Double,myaxiom,mySim](
 ```
 
 The function defined within mySim must be a function of type 
-``
+```
 f:dataset[myaxiom] => Double.
-``
+```
 In general for sim's holding data of type <datatype>, you would provide a function of type
-``
+```
  dataset[dependencies] => <datatype>.
-``
+```
 The datatype for sim can be any type at all and does not have to match the datatype of it's dependencies. For example we could define
 a sim like so
 
-``
+```
 class isEven extends sim[Boolean,myaxiom,isEven](
     ((src:dataset[myaxiom]) => {
         val ax = src.fetch[Double,myaxiom].value
         (ax%2) == 0
     }).set[isEven]
 )(0d)
-``
+```
 
 Additionally, we can include multiple dependencies in a sim by combining their types using 'with'
 
-``
+```
 class otherAxiom extends axiom[Double,otheraxiom](20d)
-``
+```
 
-``
+```
 class multiDependencySim extends sim[Double, myaxiom with otheraxiom, multiDependencySim](
    ((src:dataset[myaxiom with otheraxiom]) => {
         val myax = src.fetch[Double,myaxiom].value
@@ -195,7 +195,7 @@ class multiDependencySim extends sim[Double, myaxiom with otheraxiom, multiDepen
         (myax + otherax)/2
     }).set[multiDependendencySim]
    )(0d)
-``
+```
 
 In this example we've used two pieces of Typical's grammar to build our calculations. The first is the 'fetch' method
 which allows us to retrieve data from state, without transforming it. This is in contrast with the 'calc' method which
@@ -203,15 +203,15 @@ transforms data, discussed below.
 
 We also use the 'set' method on the sim's function argument to convert the function provided, which is just of type 
 
-``
+```
 dataset[myaxiom with otheraxiom] => Double,
-``
+```
 
 to a function of type 
 
-``
+```
 dataset[myaxiom with otheraxiom] => dataset[multiDependencySim].
-``
+```
 
 ### RSims-------------------------------
 rsim's (or recursive sims) are essentially the same as sims, but their transformations are
@@ -219,14 +219,14 @@ recursive in nature, meaning, they have themselves as a dependency.
 
 Their type parameter structure is as follows:
 
-``
+```
 rsim[<datatype>,dependencyType,selfType]
-``
+```
 
 where selfType should always be the class extending sim, and dependencyType is the combination of the types
 of our data dependencies. The base dependencies can be any axiom,sim,or rsim, and must include the selfType
 
-``
+```
 class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
    ((src:dataset[myaxiom with mysim with multiDependencyRecSim]) => {
         val myax = src.fetch[Double,myaxiom].value
@@ -235,7 +235,7 @@ class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDe
         (myax + otherax)*recsimval
     }).set[multiDependencyRecSim]
    )(1d)
-``
+```
 
 
 ### Running our calculations through chaining----------------
@@ -247,9 +247,9 @@ There is also a third method, 'include' which allows the overwrite of state.
 They are used as follows:
 
 Suppose that 
- ``
+ ```
 dat:dataset[<some combination of datasets through 'with'>]
-``
+```
 #### Operations:
     - fetch
         dat.fetch[<datatype_A>,A<:dataset[_]]
@@ -278,10 +278,10 @@ and how they want to structure the flow of their data transformation exactly.
 
 So while both 'fetch' and 'calc' could be chained together like so:
 
-``
+```
     dat.fetch.fetch.fetch
     dat.calc.calc.calc
-``
+```
 When we chain fetch, our result will contain the same values as our original dataset. But when we chain calc, if
 we have a recursive sim type in our dataset, then we may see it's value change. This is the method by which Typical
 encapsulates state. We begin with an initial dataset with some data, then we chain together calc calls to build up our
@@ -292,7 +292,7 @@ So in the context of our above example that would look like the following:
 Use the convenient data class to build an initial dataset from our types defined previously
 Start by including any data you want to calc plus it's dependencies
 
-``
+```
 val dat = data[
         myaxiom with
         otheraxiom with
@@ -305,7 +305,7 @@ val dat = data[
             .register[otheraxiom]
             .register[multiDependencyRecSim]
         ) //add any datasets for which we want to include the initial values in the context.
-        ``        
+```        
 
 
 Suppose we want to calculate a value for multiDependencyRecSim. It has multiDependencySim as a dependency which is
@@ -317,10 +317,10 @@ definition of multiDependencyRecSim. Recall however that 'calc' calls within a t
 update state for any type that isn't the one they're defined for. So if multiDependencySim was itself recursive, and had
 values that changed after calls to 'calc', we would not be able to rely on this internal call to update it's global state.
 
-``
+```
 val updatedDataset = dat.calc[Double,multiDependencySim].calc[Double,multiDependencyRecSim]
 val updatedRecSimVal = updatedDataset.value //value of multiDependencyRecSim after transformation
-``
+```
 
 We can then read values from our dataset with updated state with fetch, or we can continue to chain calc calls to further modify state.
 
