@@ -272,8 +272,8 @@ dat:dataset[<some combination of datasets through 'with'>]
 
 It should be noted that all three methods, 'calc','fetch', and 'include' can be used within the definitions of sims or rsims (like how we retrieved
 our values from state above through fetch). Using any of these within a transformation will not cause side effects, as the
-only value that will ever be changed after a transformation function is called is the one it's defined for. In this way, we can run
-sims within sims using various parameters without side effects. Fundamentally choosing when to use which, where, is up to the programmer
+only value that will ever be changed after a transformation function is called is the one associated with the type the transformation is defined for.
+In this way, we can runsims within sims using various parameters without side effects. Fundamentally choosing when to use which, where, is up to the programmer
 and how they want to structure the flow of their data transformation exactly.
 
 So while both 'fetch' and 'calc' could be chained together like so:
