@@ -106,7 +106,15 @@ or outside of one such as an application entry point), we will get a compile tim
 
 ## --------Getting Started---------------
 Typical uses 3 main structures to define it's calculations.
-They are: axiom, sim, and rsim.
+They are: axiom, sim, and rsim. These types in they're full functionality
+are imported like so:
+
+```
+import Typical.core.Typeable._
+import Typical.core.impl._
+import Typical.core.implicits._
+
+```
 
 Each of these structures are extensions of the more general type, dataset.
 In general every transformation defined in typical takes the form of
