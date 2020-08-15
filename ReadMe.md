@@ -55,15 +55,15 @@ and disadvantages for the lay-programmer, which should be weighed carefully
     -rigorous application structure with no side effects
     -complete encapsulation of state
     -extremely modular application structure which detects
-    inconsistencies at compile time
+        inconsistencies at compile time
     -very clean solutions for problems that are obviously recursive in nature
     -provides a paradigm for distributed processing that's very intuitive to reason about
 ### Disadvantages:
     - Can be difficult to implement a 'loose', overly general api structure
     - Supporting data injection/realtime data processing is not always obvious
-    when typesafety is enforced
+        when typesafety is enforced
     - type-safe processing fundamentally requires different design paradigms
-    to arrive at clean solutions
+        to arrive at clean solutions
 
 ## --------High-Level Overview of Typical data flows----------
 Typical is designed to easily build up stateful behavior in a clean
@@ -109,9 +109,11 @@ They are: axiom, sim, and rsim.
 
 Each of these structures are extensions of the more general type, dataset.
 In general every transformation defined in typical takes the form of
+
 ``
 dataset[sometype] => dataset[othertype]
 ``
+
 ### Axioms----------
 axiom's are simply typed data that requires no processing, or is processed outside of Typical.
 
@@ -228,25 +230,20 @@ Suppose
 dat:dataset[<some combination of datasets through 'with'>]
 ``
     -**fetch**:
-    ``
         dat.fetch[<datatype_A>,A<:dataset[_]] - returns dataset A with the context of dat. It's 'value' paramater will
         be the most recent value for A in dat's context. If dat is not of type dataset[A], i.e. dat does not contain A,
         you will see a compile time error.
-        ``
     -**calc**:
-    ``
         dat.calc[<datatype_A>,A<:sim[<datatype_a>,_>:dat,A]) - returns A after it's transformation function is applied
         on dat. Conceptually can be thought of f_A(dat).fetch[<datatype_a>,A] where f_a is the function provided at A's
         definition (as a axiom,sim,recsim,etc...). If dat does not have the dependencies to calculate A you will see a compile time error.
         If used within a transformation, on a src dataset, the state produced by calc is encapsulated in the transformation.
-        ``
      -**include**:
-     ``
         dat.include[<datatype_A>,A<:dataset[_]](a:datatype_A) - returns a dataset with the state of dat, but with
         the value for type A overridden, if present, or newly included, if not present. If dat was not of type dataset[A]
         i.e. dat did not contain A, the return type will be of type dataset[A] and include A's specified value.
         If used within a transformation, on a src dataset, the state produced by calc is encapsulated in the transformation.
-        ``
+        
 
 It should be noted that all three methods, 'calc','fetch', and 'include' can be used within the definitions of sims or rsims (like how we retrieved
 our values from state above through fetch). Using any of these within a transformation will not cause side effects, as the
