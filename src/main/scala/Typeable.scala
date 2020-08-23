@@ -18,14 +18,10 @@ package object Typeable {
       val newmap = this.statefulmap.updated(s,a)
       new temp(newmap,this.statestore.updated(s,this.statestore.getOrElse(s,Seq()) :+ a))
     }
-    def get[A](implicit tag:ClassTag[A]):Option[Any] = {
-      val name = buildName[A]
-      val ret = this.statefulmap.get(name)
-      ret
-    }
-    def getAs[U<:dataset[_],as](implicit tag:ClassTag[U]):as = {
+    def get[A](implicit tag:ClassTag[A]):Option[Any] = this.statefulmap.get(buildName[A])
+
+    def getAs[U<:dataset[_],as](implicit tag:ClassTag[U]):as =
       this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
-    }
     def getStateAs[U<:dataset[_],as](n:Int)(implicit tag:ClassTag[U]):as = {
       val nameU = build[U].name
       val states = this.statestore.getOrElse(nameU,Seq()).reverse

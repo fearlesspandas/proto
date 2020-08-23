@@ -171,7 +171,6 @@ package object impl {
         U,
         underlyingdata
       ]
-
     }
   }
   class combine[

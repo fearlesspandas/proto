@@ -101,6 +101,7 @@ object Test {
    * will see the final result of XSum and othersum being equal, in spite of the fact that we never directly called calc on XSum.
    *
    */
+
   val dat = data[vartest](ctx).calc[Double,vartest]
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()

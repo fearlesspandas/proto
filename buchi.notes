@@ -1,0 +1,3 @@
+Buchi automata: express the potential of infinite runs through the infinite repetition of accepting states
+
+Inclusion of Buchi automata: A is in B if A intersection Comp(B) is empty

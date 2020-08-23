@@ -72,8 +72,8 @@ package object implicits {
       val instanceu = build[U]
       instanceu.applyFromData(prov.getAs[U,B],prov).asInstanceOf[U]
     }
-    def include[B,U <: dataset[U] with InitialType[B,U]](typedInitVal:B)(implicit tagu: ClassTag[U]): dataset[U with A] with InitialType[B,U with A] = {
-      val instanceu = build[U].applyFromData(typedInitVal,a.dataprovider())
+    def include[B,U <: dataset[U] with InitialType[B,U]](value:B)(implicit tagu: ClassTag[U]): dataset[U with A] with InitialType[B,U with A] = {
+      val instanceu = build[U].applyFromData(value,a.dataprovider())
       a.clone(instanceu.prov).asInstanceOf[dataset[A with U] with InitialType[B, A with U]]
     }
     def fetchFromState[B,U >: A <: dataset[U] with InitialType[B,U]](n:Int)(implicit tagu: ClassTag[U]): dataset[U] with InitialType[B,U] = {
@@ -100,7 +100,11 @@ package object implicits {
     //Could be algebraic operations outside of those defined for Double
     //or any custom operations
   }
-
+  implicit class TestThing[A<:dataset[A], X <: dataset[X]](a:dataset[A with X]){
+    def test[U>:A with X<:dataset[_]] = a
+  }
+  
+  type modelType[initType,B<:model[_,B] with reset[initType,B] with InitialType[initType,B]] =  model[_,B] with reset[initType,B] with InitialType[initType,B]
   implicit class SequenceOps[A<:dataset[_] with InitialType[Seq[Double],A]](b:dataset[A] with InitialType[Seq[Double],A])(implicit prov:provider[A],classTag: ClassTag[A]) {
     def append[U <: dataset[_] with InitialType[Double, U]](u: U): dataset[A] = b.applyFromData(b.value :+ u.value,prov)
   }
@@ -108,12 +112,17 @@ package object implicits {
     def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset(f(d))
   }
   implicit class ToResetter2[initType,A<:dataset[_]](f:dataset[A] => initType){
-    def set[B <:model[_,B] with reset[initType,B] with InitialType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset2(f(d))
+    def set[B <:modelType[initType,B]](implicit tag:ClassTag[B]):dataset[A] => dataset[B] with reset[initType,B] = (d:dataset[A]) => build[B].reset2(f(d))
   }
+//  implicit class ToResetter3[initTypeA,initTypeB,U<:dataset[_]](f:dataset[U] => (initTypeA,initTypeB)){
+//    def set[Both[A<:model[_,A],B<:model[_,B]]] = (d:dataset[U]) => build[A].reset2(f(d))
+//  }
   implicit class ContextBuilder(p:provider[_]){
     def register[A<:dataset[_] with InitialType[_,_]](implicit tag:ClassTag[A]):provider[_] = {
       val instA = build[A]
       p.put(instA.name,instA.initialVal)
     }
   }
+
+  case class Both[+A,+B](a:A,b:B)
 }
