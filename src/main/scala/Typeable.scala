@@ -5,63 +5,100 @@ import scala.reflect.{ClassTag, classTag}
 import scala.collection.immutable.HashMap
 
 package object Typeable {
+  import grammar._
+  def build[A](implicit tag:ClassTag[A]) = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
+  type contexttype = Map[Any,Any]
+  type idtype = String
 
-  def build[A](implicit tagA:ClassTag[A]):A = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
-  def buildName[A](implicit tagA:ClassTag[A]):String = classTag[A].runtimeClass.getSimpleName()
-
-  //Data Accessor/consistency maintainer
-  trait provider[-U] {
-    val statefulmap:Map[String,Any]
-    val statestore:Map[String,Seq[Any]]
-    def put(s: String, a: Any): provider[U] = {
-      class temp(override val statefulmap:Map[String,Any],override val statestore: Map[String,Seq[Any]]) extends provider[U]
-      val newmap = this.statefulmap.updated(s,a)
-      new temp(newmap,this.statestore.updated(s,this.statestore.getOrElse(s,Seq()) :+ a))
-    }
-    def get[A](implicit tag:ClassTag[A]):Option[Any] = this.statefulmap.get(buildName[A])
-
-    def getAs[U<:dataset[_],as](implicit tag:ClassTag[U]):as =
-      this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
-    def getStateAs[U<:dataset[_],as](n:Int)(implicit tag:ClassTag[U]):as = {
-      val nameU = build[U].name
-      val states = this.statestore.getOrElse(nameU,Seq()).reverse
-      if (n < states.size) states(n).asInstanceOf[as] else null.asInstanceOf[as]
-    }
-  }
-
-  trait InitialType[A,+B<:dataset[_]]{
-    type tpe = A
-    val value:A
-    def apply[U<:dataset[_] with InitialType[tpe,_]](initval: dataset[U] with InitialType[tpe,_],prov:provider[_]): dataset[B with U] with InitialType[tpe,_]
-    def applyFromData[U<:dataset[_] with InitialType[A,_]](initial: A,prov:provider[_]): dataset[B with U] with InitialType[A,_]
-    implicit val prov:provider[_]
-  }
   trait dataset[+A <: dataset[_]]{
-    val initialVal:Any
-    val name:String
-
-    def dataprovider():provider[_]
-    def clone(p:provider[_] = this.dataprovider()):dataset[A]
+    val context:contexttype
+    def withContext(ctx:contexttype):dataset[A]
+    val id:idtype
   }
 
-  trait ax[A <: ax[A]] extends dataset[A]{
-    implicit val tag:ClassTag[A]
-    val name:String = classTag[A].runtimeClass.getSimpleName
+  trait axiom[A <: axiom[A]] extends dataset[A]{
+    val value:Any = null
+    override val id = this.getClass.getSimpleName
+    override val context: contexttype = Map()
   }
 
-  trait reset[initType,A<:model[_,A] with reset[initType,A] with InitialType[initType,_]] {
-    def reset(initial: dataset[_] with InitialType[initType,_]): dataset[A] with reset[initType,A]
-    def reset2(initial: initType): dataset[A] with reset[initType,A]
-  }
   trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {
-    implicit val tag:ClassTag[output]
-    val name:String = classTag[output].runtimeClass.getSimpleName
-    implicit val iterateFrom:dataset[dependencies] => dataset[output]
+    val iterate: dataset[dependencies] => output
+    val value:Any = null
+    override val id = this.getClass.getSimpleName
+    override val context: contexttype = Map()
   }
 
-  trait number extends provider[number] {
-    override lazy val statestore: Map[String, Seq[Any]] = Map()
-    override lazy val statefulmap = HashMap[String,Any]()
+
+  case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
+    override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
+    override val id: idtype = ""
+    def dataset = this.asInstanceOf[dataset[A]]
   }
 
+  class thing extends model[thing,thing] {
+    override val iterate: dataset[thing] => thing = (src:dataset[thing]) => {
+      new thing {
+        override val value = src.fetchAs[thing,Int] + 10
+      }
+    }
+    override def withContext(ctx: contexttype): thing = new thing {
+      override val context = ctx
+    }
+  }
+  class othertype extends model[thing,othertype] {
+    override val iterate: dataset[thing] => othertype =
+      (src:dataset[thing]) => {
+      new othertype {
+        override val value = src.fetchAs[thing,Int] + 5
+      }
+    }
+    override def withContext(ctx: contexttype): dataset[othertype] = new othertype {
+      override val context = ctx
+    }
+  }
+
+}
+
+package object grammar {
+  import Typeable._
+  implicit class Calcer[A<:dataset[_]](a:dataset[A]){
+    def calc[U<:model[A,U]](implicit tag:ClassTag[U]):dataset[A with U] = {
+      val instA = build[U]
+      a.withContext(a.context.updated(instA.id,instA.iterate(a).value))
+        .asInstanceOf[dataset[A with U]]
+    }
+  }
+  implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
+    def fetchAs[U>:A<:dataset[U],tpe](implicit tag:ClassTag[U]) = a.context.get(build[U].id).collect({case a:tpe => a}).get
+    def fetch[U>:A<:dataset[U]](implicit tag:ClassTag[U]) = a.context.get(build[U].id).get
+  }
+  implicit class ContextBuilder(m:Map[Any,Any]){
+    def register[U<:dataset[_]](value:Any)(implicit tag:ClassTag[U]):Map[Any,Any] = m.updated(build[U].id,value)
+  }
+  implicit class Includer[A<:dataset[_]](a:dataset[A]){
+    def include[U<:dataset[_]](value:Any)(implicit tag:ClassTag[U]) = {
+      val instance = build[U]
+      a.withContext(a.context.updated(instance.id,value))
+        .asInstanceOf[dataset[A with U]]
+    }
+  }
+}
+
+object runner {
+  import Typeable._
+  import grammar._
+  def main(args:Array[String]):Unit = {
+    val test = data[othertype](
+      Map[Any,Any]()
+        .register[thing](1)
+        .register[othertype](2)
+    )
+      .include[thing](100)
+      .calc[othertype]
+      .calc[thing]
+      .calc[othertype]
+      val res = test.fetchAs[othertype,Int]
+    println(res)
+  }
 }

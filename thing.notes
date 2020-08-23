@@ -1,0 +1,8 @@
+iter:dataset[a] => dataset[b]
+ctx:Map[any,any]
+
+
+thing extends sim[a with b,thing](iter)(ctx)
+
+
+
