@@ -12,11 +12,11 @@ package object Typeable {
   //Data Accessor/consistency maintainer
   trait provider[-U] {
     val statefulmap:Map[String,Any]
-    val statestore:Seq[Map[String,Any]]
+    val statestore:Map[String,Seq[Any]]
     def put(s: String, a: Any): provider[U] = {
-      class temp(override val statefulmap:Map[String,Any],override val statestore: Seq[Map[String, Any]]) extends provider[U]
+      class temp(override val statefulmap:Map[String,Any],override val statestore: Map[String,Seq[Any]]) extends provider[U]
       val newmap = this.statefulmap.updated(s,a)
-      new temp(newmap,this.statestore :+ newmap)
+      new temp(newmap,this.statestore.updated(s,this.statestore.getOrElse(s,Seq()) :+ a))
     }
     def get[A](implicit tag:ClassTag[A]):Option[Any] = {
       val name = buildName[A]
@@ -27,7 +27,9 @@ package object Typeable {
       this.statefulmap.get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as]
     }
     def getStateAs[U<:dataset[_],as](n:Int)(implicit tag:ClassTag[U]):as = {
-      if (n < this.statestore.size) this.statestore(n).get(build[U].name).collect({case a:as => a}).getOrElse(null).asInstanceOf[as] else null.asInstanceOf[as]
+      val nameU = build[U].name
+      val states = this.statestore.getOrElse(nameU,Seq()).reverse
+      if (n < states.size) states(n).asInstanceOf[as] else null.asInstanceOf[as]
     }
   }
 
@@ -62,7 +64,7 @@ package object Typeable {
   }
 
   trait number extends provider[number] {
-    override lazy val statestore: Seq[Map[String, Any]] = Seq()
+    override lazy val statestore: Map[String, Seq[Any]] = Map()
     override lazy val statefulmap = HashMap[String,Any]()
   }
 
