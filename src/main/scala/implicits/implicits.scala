@@ -103,7 +103,7 @@ package object implicits {
   implicit class TestThing[A<:dataset[A], X <: dataset[X]](a:dataset[A with X]){
     def test[U>:A with X<:dataset[_]] = a
   }
-  
+
   type modelType[initType,B<:model[_,B] with reset[initType,B] with InitialType[initType,B]] =  model[_,B] with reset[initType,B] with InitialType[initType,B]
   implicit class SequenceOps[A<:dataset[_] with InitialType[Seq[Double],A]](b:dataset[A] with InitialType[Seq[Double],A])(implicit prov:provider[A],classTag: ClassTag[A]) {
     def append[U <: dataset[_] with InitialType[Double, U]](u: U): dataset[A] = b.applyFromData(b.value :+ u.value,prov)
