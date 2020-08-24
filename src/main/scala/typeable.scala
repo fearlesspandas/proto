@@ -4,7 +4,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import scala.collection.immutable.HashMap
 
-package object Typeable {
+package object typeable {
   import grammar._
   private[core] def build[A](implicit tag:ClassTag[A]) = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
   type contexttype = Map[Any,Any]
@@ -31,7 +31,7 @@ package object Typeable {
 
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
     override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
-    override val id: idtype = ""
+    override val id: idtype = null
     def dataset = this.asInstanceOf[dataset[A]]
   }
 
@@ -39,7 +39,7 @@ package object Typeable {
 }
 
 package object grammar {
-  import Typeable._
+  import typeable._
   implicit class Calcer[A<:dataset[_]](a:dataset[A]){
     def calc[U<:model[A,U]](implicit tag:ClassTag[U]):dataset[A with U] = {
       val instA = build[U]
@@ -48,7 +48,8 @@ package object grammar {
     }
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
-    def fetchAs[U>:A<:dataset[U],tpe](implicit tag:ClassTag[U]) = a.context.get(build[U].id).collect({case a:tpe => a}).get
+    def fetchAsOpt[U>:A<:dataset[U],tpe](implicit tag:ClassTag[U]):Option[tpe] = a.context.get(build[U].id).collect({case a:tpe => a})
+    def fetchAs[U>:A<:dataset[U],tpe](implicit tag:ClassTag[U]):tpe = a.context.get(build[U].id).collect({case a:tpe => a}).get
     def fetch[U>:A<:dataset[U]](implicit tag:ClassTag[U]) = a.context.get(build[U].id).get
   }
   implicit class ContextBuilder(m:Map[Any,Any]){
@@ -73,28 +74,30 @@ package object grammar {
           Some(
             a.withContext(a.context ++ b.context).asInstanceOf[dataset[A with B]]
           )
-
       }
     }
+
+    def induct[B<:dataset[_]]() = ???
   }
+
+
+
 }
 
 object runner {
-  import Typeable._
+  import typeable._
   import grammar._
   class thing extends model[thing with othertype,thing] {
-    override def iterate(src:dataset[thing with othertype]):thing = {
-      new thing {
+    override def iterate(src:dataset[thing with othertype]):thing = new thing {
         override val value = src.fetchAs[thing,Int] + 10
       }
-    }
+
     override def withContext(ctx: contexttype): thing = new thing {
       override val context = ctx
     }
   }
   class othertype extends model[thing,othertype] {
-    override def iterate(src:dataset[thing]): othertype =
-      new othertype {
+    override def iterate(src:dataset[thing]): othertype = new othertype {
         override val value = src.fetchAs[thing,Int] + 5
       }
 
