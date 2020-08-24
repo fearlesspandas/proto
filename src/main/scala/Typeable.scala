@@ -6,7 +6,7 @@ import scala.collection.immutable.HashMap
 
 package object Typeable {
   import grammar._
-  def build[A](implicit tag:ClassTag[A]) = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
+  private[core] def build[A](implicit tag:ClassTag[A]) = classTag[A].runtimeClass.newInstance().asInstanceOf[A]
   type contexttype = Map[Any,Any]
   type idtype = String
 
@@ -23,12 +23,11 @@ package object Typeable {
   }
 
   trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {
-    val iterate: dataset[dependencies] => output
+    def iterate(src:dataset[dependencies]):output
     val value:Any = null
     override val id = this.getClass.getSimpleName
     override val context: contexttype = Map()
   }
-
 
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
     override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
@@ -36,27 +35,6 @@ package object Typeable {
     def dataset = this.asInstanceOf[dataset[A]]
   }
 
-  class thing extends model[thing,thing] {
-    override val iterate: dataset[thing] => thing = (src:dataset[thing]) => {
-      new thing {
-        override val value = src.fetchAs[thing,Int] + 10
-      }
-    }
-    override def withContext(ctx: contexttype): thing = new thing {
-      override val context = ctx
-    }
-  }
-  class othertype extends model[thing,othertype] {
-    override val iterate: dataset[thing] => othertype =
-      (src:dataset[thing]) => {
-      new othertype {
-        override val value = src.fetchAs[thing,Int] + 5
-      }
-    }
-    override def withContext(ctx: contexttype): dataset[othertype] = new othertype {
-      override val context = ctx
-    }
-  }
 
 }
 
@@ -77,10 +55,26 @@ package object grammar {
     def register[U<:dataset[_]](value:Any)(implicit tag:ClassTag[U]):Map[Any,Any] = m.updated(build[U].id,value)
   }
   implicit class Includer[A<:dataset[_]](a:dataset[A]){
-    def include[U<:dataset[_]](value:Any)(implicit tag:ClassTag[U]) = {
+    def include[U<:dataset[_]](value:Any)(implicit tag:ClassTag[U]):dataset[A with U] = {
       val instance = build[U]
       a.withContext(a.context.updated(instance.id,value))
         .asInstanceOf[dataset[A with U]]
+    }
+  }
+  implicit class Merger[A<:dataset[A]](a:dataset[A]){
+    def merge[B<:dataset[_]](b:dataset[B]):Option[dataset[A with B]] = {
+      val matchkeys = a.context.keys.filter(k => b.context.keys.toSeq.contains(k))
+      val noContradiction = matchkeys.foldLeft(true)( (acc,key) => {
+        acc && b.context.get(key) == a.context.get(key)
+      })
+      noContradiction match {
+        case false => None
+        case true =>
+          Some(
+            a.withContext(a.context ++ b.context).asInstanceOf[dataset[A with B]]
+          )
+
+      }
     }
   }
 }
@@ -88,17 +82,48 @@ package object grammar {
 object runner {
   import Typeable._
   import grammar._
+  class thing extends model[thing with othertype,thing] {
+    override def iterate(src:dataset[thing with othertype]):thing = {
+      new thing {
+        override val value = src.fetchAs[thing,Int] + 10
+      }
+    }
+    override def withContext(ctx: contexttype): thing = new thing {
+      override val context = ctx
+    }
+  }
+  class othertype extends model[thing,othertype] {
+    override def iterate(src:dataset[thing]): othertype =
+      new othertype {
+        override val value = src.fetchAs[thing,Int] + 5
+      }
+
+    override def withContext(ctx: contexttype): dataset[othertype] = new othertype {
+      override val context = ctx
+    }
+  }
+
+  class equiv[A<:model[_<:dataset[B],A],B<:model[_<:dataset[A],B]] extends model[A with B,equiv[A,B]]{
+    //override val id = this.getClass.getSimpleName + build[A].id + build[B].id
+    override def iterate(src: dataset[A with B]): equiv[A, B] = new equiv[A,B] {
+      override val value: Any = true
+    }
+    override def withContext(ctx: contexttype): dataset[equiv[A, B]] = new equiv[A,B] {
+      override val context: contexttype = ctx
+    }
+  }
   def main(args:Array[String]):Unit = {
     val test = data[othertype](
       Map[Any,Any]()
-        .register[thing](1)
-        .register[othertype](2)
+        .register[othertype](1)
     )
-      .include[thing](100)
-      .calc[othertype]
-      .calc[thing]
-      .calc[othertype]
-      val res = test.fetchAs[othertype,Int]
+    val dat = data[thing](
+        Map[Any,Any]()
+          .register[thing](100)
+        )
+    val merged = test.merge(dat)
+      //.calc[equiv[othertype,thing]]
+      val res = merged.get.context//.fetchAs[equiv[othertype,thing],Boolean]
     println(res)
   }
 }
