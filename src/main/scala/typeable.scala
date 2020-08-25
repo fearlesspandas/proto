@@ -13,20 +13,25 @@ package object typeable {
   trait dataset[+A <: dataset[_]]{
     val context:contexttype
     def withContext(ctx:contexttype):dataset[A]
-    val id:idtype
+    def id:idtype
+    val value:Any = null
   }
 
   trait axiom[A <: axiom[A]] extends dataset[A]{
-    val value:Any = null
+    override val value:Any = null
     override val id = this.getClass.getSimpleName
     override val context: contexttype = Map()
+
+    override def withContext(ctx: contexttype): dataset[A] = null
   }
 
-  trait model[-dependencies <: dataset[_], output <: model[_,output]] extends dataset[output] {
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] {
     def iterate(src:dataset[dependencies]):output
-    val value:Any = null
+    override val value:Any = null
     override val id = this.getClass.getSimpleName
     override val context: contexttype = Map()
+
+    override def withContext(ctx: contexttype): dataset[output] = null
   }
 
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
@@ -45,6 +50,12 @@ package object grammar {
       val instA = build[U]
       a.withContext(a.context.updated(instA.id,instA.iterate(a).value))
         .asInstanceOf[dataset[A with U]]
+    }
+    def calcFor[U<:model[A,B],B<:dataset[_]](implicit tag:ClassTag[U],tagb:ClassTag[B]):dataset[A with B] = {
+      val instU = build[U]
+      val instB = build[B]
+      a.withContext(a.context.updated(instB.id,instU.iterate(a).value))
+        .asInstanceOf[dataset[A with B]]
     }
 
   }
@@ -82,8 +93,6 @@ package object grammar {
     def induct[B<:dataset[_]]() = ???
   }
 
-
-
   implicit class Iterator[A<:dataset[_]](a:dataset[A]){
     def iter[F<:dataset[A] => dataset[A]](f:F):dataset[A] = f(a)
     def transact[U>:A<:dataset[_]](f:dataset[A] => dataset[U]):dataset[U] = f(a)
@@ -97,31 +106,26 @@ object runner {
   import grammar._
   class thing extends model[thing with otherthing,thing] {
     override def iterate(src:dataset[thing with otherthing]):thing = new thing {
-        override val value = src.fetchAs[thing,Int] + 10
+        override val value = src.fetchAsOpt[thing,Int].get + 10
       }
 
-    override def withContext(ctx: contexttype): thing = new thing {
-      override val context = ctx
-    }
   }
   class otherthing extends model[thing,otherthing] {
     override def iterate(src:dataset[thing]): otherthing = new otherthing {
         override val value = src.fetchAs[thing,Int] + 5
       }
-
-    override def withContext(ctx: contexttype): dataset[otherthing] = new otherthing {
-      override val context = ctx
-    }
   }
 
+  class testhing extends model[thing,otherthing]{
+    override def iterate(src: dataset[thing]): otherthing = new otherthing{
+      override val value = 1000000000
+    }
+  }
   def f(th:dataset[thing with otherthing]) : dataset[thing] = th.withContext(th.context.remove[otherthing])
 
   class equiv[A<:model[_<:dataset[B],A],B<:model[_<:dataset[A],B]] extends model[A with B,equiv[A,B]]{
     override def iterate(src: dataset[A with B]): equiv[A, B] = new equiv[A,B] {
       override val value: Any = true
-    }
-    override def withContext(ctx: contexttype): dataset[equiv[A, B]] = new equiv[A,B] {
-      override val context: contexttype = ctx
     }
   }
   def main(args:Array[String]):Unit = {
@@ -136,13 +140,13 @@ object runner {
     val merged = test.merge(dat)
     val test2 = data[otherthing with thing with equiv[thing,otherthing]](
       Map[Any,Any]()
-        .register[otherthing](1)
+        .register[thing](1)
     )
-    val t = test2.transact(f)
+    val t = test2.calc[thing].calcFor[testhing,otherthing].calc[otherthing]
     println(t.context)
     //val t1 = test2.transact[thing]
       //.calc[equiv[othertype,thing]]
-      val res = merged.get.context//.fetchAs[equiv[othertype,thing],Boolean]
+      val res = merged.get.context
     println(res)
   }
 }
