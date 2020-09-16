@@ -15,7 +15,7 @@ package object typeable {
   def getType[T:TypeTag](t:T) = typeTag[T]
   val thing = getType(data(null)).tpe.decls.take(10)
 
-//  implicit class Builder[A<:dataset[_<:datastore[_]]](a:dataset[A]){
+//  implicit class Builder[A<:dataset[_<:dataset[_]]](a:dataset[A]){
 //    def to
 //  }
   //case class buildhelper[A](id:idtype,iterate:)a
@@ -28,33 +28,30 @@ package object typeable {
     val cm = m.reflectClass(classThing)
     val c1 = typeOf[A].decl(termNames.CONSTRUCTOR).asMethod
     val c2 = cm.reflectConstructor(c1)
-    c2().asInstanceOf[A]
+    c2.apply().asInstanceOf[A]
   }
   type contexttype = Map[Any,dataset[_]]
   type idtype = String
 
 
   trait InitialType[+T]{
-    val typedValue:T = null.asInstanceOf[T]
+    val value:T = null.asInstanceOf[T]
   }
-  trait dataset[+A <: dataset[_]]{
+  trait dataset[+A <: dataset[_]] extends InitialType[Any]{
     val context:contexttype
     def withContext(ctx:contexttype):dataset[A]
     def id:idtype
-    val value:Any = null
   }
 
-  trait axiom[A <: axiom[A]] extends dataset[A]{
-    override val value:Any = null
+  trait axiom[A <: axiom[A]] extends dataset[A] with InitialType[Any]{
     override final val id = this.getClass.getSimpleName
     override val context: contexttype = Map()
 
     override def withContext(ctx: contexttype): dataset[A] = null
   }
 
-  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] {
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with InitialType[Any] {
     def iterate(src:dataset[dependencies]):output = null.asInstanceOf[output]
-    override val value:Any = null
     override final val id = this.getClass.getSimpleName
     override val context: contexttype = Map()
 
@@ -83,17 +80,17 @@ package object grammar {
       a.withContext(a.context.updated(instA.id,instA.iterate(a)))
         .asInstanceOf[dataset[A with U]]
     }
-//    def calcFor[U<:model[A,B],B<:datastore[_]](implicit tag:ClassTag[U], tagb:ClassTag[B]):datastore[A with B] = {
-//      val instU = buildFunc[U,A]
-//      val instB = buildFunc[B]
-//      a.withContext(a.context.updated(instB.id,instU.iterate(a)))
-//        .asInstanceOf[datastore[A with B]]
-//    }
+    def calcFor[U<:model[A,B],B<:dataset[_]](implicit tag:TypeTag[U], tagb:TypeTag[B]):dataset[A with B] = {
+      val instU = build[U]
+      val instB = build[B]
+      a.withContext(a.context.updated(instB.id,instU.iterate(a)))
+        .asInstanceOf[dataset[A with B]]
+    }
 
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
-    def fetchAs[U>:A<:dataset[U] with InitialType[tpe],tpe](implicit ttag:TypeTag[U]):Option[tpe] = a.context.get(build[U].id) match {
-      case Some(d:U) => Some(d.typedValue)
+    def fetchAs[U>:A<:dataset[_] with InitialType[tpe],tpe](implicit ttag:TypeTag[U]):Option[tpe] = a.context.get(build[U].id) match {
+      case Some(d:U) => Some(d.value[tpe])
       case _ => None
     }
     def fetch[U>:A<:dataset[U]](implicit ttag:TypeTag[U]):Option[U] = a.context.get(build[U].id).asInstanceOf[Option[U]]
@@ -108,7 +105,7 @@ package object grammar {
     {
       val k = p._1
       val v:dataset[_] = p._2
-      val prettyval = if(v.isInstanceOf[InitialType[_]]) v.asInstanceOf[InitialType[_]].typedValue
+      val prettyval = if(v.isInstanceOf[InitialType[_]]) v.asInstanceOf[InitialType[_]].value
       else v.value
       k -> prettyval
     })
@@ -158,19 +155,32 @@ object runner {
 
   class checkOne extends model[Input,checkOne] with InitialType[Seq[Double]]{
     override def iterate(src:dataset[Input]):checkOne = new checkOne {
-        override val typedValue = {
+        override val value = {
           val in = src.fetchAs[Input,input].get
           in.thing1.filter(_<9)
         }
       }
   }
-  abstract class checkTwo[A<: dataset[A] with InitialType[Seq[Double]]](implicit tag:TypeTag[A]) extends model[A,A] with InitialType[Seq[Double]] {
-      override def iterate(src: dataset[A]): A = new checkTwo[A] {
-        override val typedValue = src.fetchAs[A, Seq[Double]].get.distinct
-      }.asInstanceOf[A]
+  class checkTwo[A<: dataset[A] with InitialType[Seq[Double]],self<:checkTwo[_,self]](implicit tag:TypeTag[A]) extends model[A ,self] with InitialType[Seq[Double]] {
+      val alternativeData = false
+      override def iterate(src: dataset[A]): self = new checkTwo[A,self] {
+        override val value = src.fetchAs[A, Seq[Double]].get//.distinct
+        override val alternativeData: Boolean = true
+      }.asInstanceOf[self]
   }
-  case class Thing1() extends checkTwo[checkOne]
-
+  abstract class checkThree[
+    A<: dataset[A] with InitialType[Seq[Double]],
+    self<:checkThree[_,self,_],
+    othercheck<:checkTwo[A,othercheck] with InitialType[Seq[Double]]
+  ](implicit tag:TypeTag[A],othertag:TypeTag[othercheck])
+    extends model[A with othercheck,self] with InitialType[Seq[Double]] {
+    override def iterate(src: dataset[A with othercheck]): self = new checkThree[A,self,othercheck] {
+      type mine = Seq[Double]
+      override val value = src.fetchAs[A, Seq[Double]].get.distinct
+    }.asInstanceOf[self]
+  }
+  case class Thing1() extends checkThree[checkOne,Thing1,Thing2]
+  case class Thing2() extends checkTwo[checkOne,Thing2]
 
 
   def main(args:Array[String]):Unit = {
@@ -178,12 +188,11 @@ object runner {
         Map[Any,dataset[_]]()
           .register[Input](
             new Input {
-              override val typedValue: input = input(Seq(11,1,1,1,1),Seq(2,2,2,2))
+              override val value: input = input(Seq(11,1,1,1,1),Seq(2,2,2,2))
             }
           )
         )
-    val res = dat.calc[checkOne].calc[Thing1]//run(runnerfunc(_))
+    val res = dat.calc[checkOne].calc[Thing2].calc[Thing1]//.calcFor[Thing2,checkOne]//run(runnerfunc(_))
     println(res.context.valueView())
-    //println()
   }
 }
