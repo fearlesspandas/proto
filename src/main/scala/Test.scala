@@ -2,7 +2,7 @@ import Typical.core._
 object runner {
   import typeable._
   import grammar._
-
+  import scala.reflect.runtime.universe._
 
   case class account()
   case class employer()
@@ -44,8 +44,21 @@ object runner {
     }
   }
 
+  case class andThen[
+    A<:model[A,A],
+    B<:model[B,B]
+  ](implicit
+    atag:TypeTag[A],
+    btag:TypeTag[B],
+    alltag:TypeTag[andThen[A,B]]
+   ) extends model[A with B,andThen[A,B]] with InitialType[dataset[A with B]] {
+    override def iterate(src: dataset[A with B]): andThen[A,B] = new andThen[A,B] {
+      override val value = src.calc[A].calc[B]
+    }
+  }
+
   def main(args:Array[String]):Unit = {
-    val dat = data[Input with Employers](
+    val dat = data[Employers with Input](
       Map[Any,dataset[_]]()
         .register[Input](
           new Input {
@@ -53,7 +66,11 @@ object runner {
           }
         )
     )
-    val res = dat.calcFor[GetAccounts,Accounts].calcFor[CheckEmployerAccounts,Accounts]
+    val res = dat
+      .calcFor[GetAccounts,Accounts]
+      .calcFor[GetEmployers,Employers]
+      .calcFor[CheckEmployerAccounts,Accounts]
+      .calcInferred[Accounts andThen Employers](andThen[Accounts,Employers])//.calcFor[ThingThing,Accounts andThen Employers]
     println(res.context.valueView())
   }
 }

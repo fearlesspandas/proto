@@ -2,34 +2,46 @@ package Typical.core
 import scala.reflect.runtime.universe._
 package object grammar {
   import typeable._
-
   implicit class Calcer[A<:dataset[_]](a:dataset[A]){
-    def calc[U<:model[A,U]](implicit ttag:TypeTag[U]):dataset[A with U] = {
+
+    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with U] = {
       val instA = build[U]
-      a.withContext(a.context.updated(instA.id,instA.iterate(a)))
+      if (a.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else a.withContext(a.context.updated(instA.id,instA.iterate(a)))
         .asInstanceOf[dataset[A with U]]
     }
-    def calcAs[U<:model[A,U] with InitialType[tpe],tpe](implicit ttag:TypeTag[U]):dataset[A with U] = {
-      val instA = build[U]
-      a.withContext(a.context.updated(instA.id,instA.iterate(a)))
+    def calcInferred[U<:model[A,U]](u:U)(implicit atag:TypeTag[A]):dataset[A with U] = {
+      if (a.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else a.withContext(a.context.updated(u.id,u.iterate(a)))
         .asInstanceOf[dataset[A with U]]
     }
-    def calcFor[U<:model[A,B],B<:dataset[_]](implicit tag:TypeTag[U], tagb:TypeTag[B]):dataset[A with B] = {
+    def calcAs[U<:model[A,U] with InitialType[tpe],tpe](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with U] = {
+      val instA = build[U]
+      if (a.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else a.withContext(a.context.updated(instA.id,instA.iterate(a)))
+        .asInstanceOf[dataset[A with U]]
+    }
+    def calcFor[U<:model[A,B],B<:dataset[_]](implicit tag:TypeTag[U], tagb:TypeTag[B],atag:TypeTag[A]):dataset[A with B] = {
       val instU = build[U]
       val instB = build[B]
-      a.withContext(a.context.updated(instB.id,instU.iterate(a)))
+      if (a.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else a.withContext(a.context.updated(instB.id,instU.iterate(a)))
         .asInstanceOf[dataset[A with B]]
     }
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
-    def fetchAs[U>:A<:dataset[_] with InitialType[tpe],tpe](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[tpe] = if(a.context.isEmpty) throw new Error(contextErrorString(build[A].id)) else a.context.get(build[U].id) match {
-      case Some(d:U) => Some(d.value)
-      case _ => None
+    def fetchAs[U>:A<:dataset[_] with InitialType[tpe],tpe](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[tpe] =
+      if(a.context.isEmpty) throw new Error(contextErrorStringFetch(build[A].id))
+      else a.context.get(build[U].id) match {
+        case Some(d:U) => Some(d.value)
+        case _ => None
     }
-    def fetch[U>:A<:dataset[U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[U] = if(a.context.isEmpty) throw new Error(contextErrorString(build[A].id)) else (a.context.get(build[U].id) match {
-      case Some(d:dataset[_]) if d.isInstanceOf[U] && d.asInstanceOf[U].withContext(a.context) == null => Some(d.asInstanceOf[U])
-      case Some(d:dataset[_]) if d.isInstanceOf[U] => Some(d.asInstanceOf[U].withContext(a.context))
-      case _ => None
+    def fetch[U>:A<:dataset[U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[U] =
+      if(a.context.isEmpty) throw new Error(contextErrorStringFetch(build[A].id))
+      else (a.context.get(build[U].id) match {
+        case Some(d:U) if d.withContext(a.context) == null => Some(d.asInstanceOf[U])
+        case Some(d:U)  => Some(d.asInstanceOf[U].withContext(a.context))
+        case _ => None
     }).asInstanceOf[Option[U]]
   }
   implicit class ContextBuilder(m:Map[Any,Any]){
