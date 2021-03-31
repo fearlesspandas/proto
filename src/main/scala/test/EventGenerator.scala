@@ -4,6 +4,7 @@ import Typical.core.typeable._
 import EventHandler._
 import src.main.scala.test.Consumption.Consumption
 object EventGenerator{
+
   type dep = Events with Consumption
   case class EventGenerator() extends model[dep,EventGenerator] with TerminalType[Seq[Event]] {
     override def iterate(src: dataset[dep]): EventGenerator = new EventGenerator {

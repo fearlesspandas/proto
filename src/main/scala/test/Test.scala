@@ -21,8 +21,10 @@ object runner {
       }
     }
 
-    override def withContext(ctx: contexttype): dataset[Prog] = 
-    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](Map[Any,dataset[_]]())
+//    override def withContext(ctx: contexttype): dataset[Prog] = new Prog{
+//      override val context = ctx
+//    }
+    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](Map[Any,dataset[_]]().register[Events](new Events))
   }
   case class andThen[
     A<:model[A,A],
@@ -40,7 +42,7 @@ object runner {
   }
 
   def main(args:Array[String]):Unit = {
-  val dat = data[Prog](Map()).calc[Prog].calc[Prog].fetch[Prog].get.value
+  val dat = data[Prog](Map[Any,dataset[_]]().register[Prog](new Prog)).calc[Prog].calc[Prog].calc[Prog].fetch[Prog].get.value
     val res = dat.fetch[Events].get.value
     println(res)
   }
