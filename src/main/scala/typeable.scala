@@ -38,7 +38,7 @@ package object typeable {
 
 
   trait TerminalType[+T]{
-    val value:T = null.asInstanceOf[T]
+    val value:T// = null.asInstanceOf[T]
   }
 
   trait InitialType[-T<:dataset[_]]{
@@ -77,6 +77,8 @@ package object typeable {
     override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
     override val id: idtype = null
     def dataset = this.asInstanceOf[dataset[A]]
+
+    override val value: Any = null
   }
 
 }

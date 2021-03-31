@@ -41,6 +41,7 @@ package object grammar {
       else src.withContext(src.context.updated(instB.id,instU.iterate(src)))
         .asInstanceOf[dataset[A with B]]
     }
+    def lift[U<:TerminalType[tp2 => tp2] with model[A,B],B<:dataset[_],tp1,tp2]()
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
     def fetchAs[U>:A<:dataset[_] with TerminalType[tpe],tpe](implicit ttag:TypeTag[U], atag:TypeTag[A]):Option[tpe] =
