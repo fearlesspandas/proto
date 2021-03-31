@@ -7,20 +7,20 @@ package object EventHandler{
   import grammar._
   import typeable._
 
-  type EventDependencies = SpendEvents
+  type EventDependencies = Events
   type SpendEventDependencies = Events
   trait Event{
     val amount:Double
   }
   case class spendEvent(amount:Double) extends Event
-  case class SpendEvents() extends model[SpendEvents with SpendEventDependencies,SpendEvents] with TerminalType[Seq[spendEvent]] {
-    override def iterate(src: dataset[SpendEvents with SpendEventDependencies]): SpendEvents = new SpendEvents{
+  case class SpendEvents() extends model[SpendEventDependencies,SpendEvents] with TerminalType[Seq[spendEvent]] {
+    override def iterate(src: dataset[SpendEventDependencies]): SpendEvents = new SpendEvents{
       override val value: Seq[spendEvent] = src.fetch[Events].get.currentEventStore.collect({case se:spendEvent => se})
     }
     override val value: Seq[spendEvent] = Seq()
   }
 
-  case class Events() extends model[EventDependencies,Events] with TerminalType[Seq[Event]] {
+  case class Events() extends model[Events,Events] with TerminalType[Seq[Event]] {
     val currentEventStore:Seq[Event] = Seq()
     override def iterate(src: dataset[EventDependencies]): Events = src.fetch[Events].get
 

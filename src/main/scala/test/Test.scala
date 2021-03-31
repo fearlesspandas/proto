@@ -2,13 +2,14 @@ package src.main.scala.test
 
 import Typical.core._
 import EventHandler._
+import src.main.scala.test.Consumption.Consumption
 import src.main.scala.test.EventGenerator.EventGenerator
 object runner {
   import grammar._
   import typeable._
 
   import scala.reflect.runtime.universe._
-  type ProgramDependencies = Events with EventGenerator
+  type ProgramDependencies = Events with EventGenerator with Consumption
   case class Prog( ) extends model[Prog,Prog] with TerminalType[dataset[ProgramDependencies]] {
     override def iterate(src: dataset[Prog]): Prog = {
       val dat = src.fetch[Prog].get.value
@@ -20,9 +21,8 @@ object runner {
       }
     }
 
-    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](Map[Any,dataset[_]](
-      
-    ))
+    override def withContext(ctx: contexttype): dataset[Prog] = 
+    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](Map[Any,dataset[_]]())
   }
   case class andThen[
     A<:model[A,A],
@@ -40,6 +40,8 @@ object runner {
   }
 
   def main(args:Array[String]):Unit = {
-
+  val dat = data[Prog](Map()).calc[Prog].calc[Prog].fetch[Prog].get.value
+    val res = dat.fetch[Events].get.value
+    println(res)
   }
 }
