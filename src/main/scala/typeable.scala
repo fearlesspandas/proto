@@ -1,7 +1,15 @@
 package Typical.core;
 
+import Typical.core.Id._
+
 import scala.reflect.runtime.universe._
+import grammar._
 package object typeable {
+//  def getTypeId[A] = {
+//    lazy val res = typeTag[A].tpe
+//    res
+//  }
+
   def getTypeTag[T: TypeTag](obj: T) = typeTag[T]
   def m[T: TypeTag, S: TypeTag](x: T, y: S): Boolean = {
        val leftTag = typeTag[T]
@@ -33,8 +41,8 @@ package object typeable {
    To allow it override the 'withContext' method in ${className},
    and define it to update the context val for the ${className} type
   """
-  type contexttype = Map[Any,dataset[_]]
-  type idtype = String
+  type contexttype = Map[idtype,dataset[_]]
+  type idtype = Any
 
 
   trait TerminalType[+T]{
@@ -45,7 +53,7 @@ package object typeable {
     val terminalValue:dataset[_>:T<:dataset[_]] = null
   }
 
-  trait dataset[+A <: dataset[_]] extends TerminalType[Any]{
+  trait dataset[+A <: dataset[_]] extends TerminalType[Any] {
     val context:contexttype
     def withContext(ctx:contexttype):dataset[A]
     def id:idtype
@@ -57,9 +65,9 @@ package object typeable {
     override def withContext(ctx: contexttype): dataset[A] = null
   }
 
-  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with TerminalType[Any] {
-    def iterate(src:dataset[dependencies]):output
-    override final val id = this.getClass.getTypeName
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with TerminalType[Any] {self =>
+    def iterate(src:dataset[dependencies]):Option[output]
+    override final val id = this.toString
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[output] = null
   }
@@ -75,7 +83,7 @@ package object typeable {
   }
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
     override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
-    override val id: idtype = null
+    override val id: idtype = null.asInstanceOf[idtype]
     def dataset = this.asInstanceOf[dataset[A]]
 
     override val value: Any = null

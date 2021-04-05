@@ -1,49 +1,68 @@
 package src.main.scala.test
 
 import Typical.core._
-import EventHandler._
-import src.main.scala.test.Consumption.Consumption
+import src.main.scala.test.Consumption.{Consumption, Counter}
 import src.main.scala.test.EventGenerator.EventGenerator
+import src.main.scala.test.EventHandler._
+import test.SpendEvents.SpendEvents
+
 object runner {
+
   import grammar._
   import typeable._
 
   import scala.reflect.runtime.universe._
-  type ProgramDependencies = Events with EventGenerator with Consumption
-  case class Prog( ) extends model[Prog,Prog] with TerminalType[dataset[ProgramDependencies]] {
-    override def iterate(src: dataset[Prog]): Prog = {
-      val dat = src.fetch[Prog].get.value
-      val newevents = dat.calc[EventGenerator].fetch[EventGenerator].get.value
-      val currentevents = dat.fetch[Events].get
-      val updatedEvents = currentevents.addEvents(newevents)
-      new Prog{
-        override val value: dataset[ProgramDependencies] = dat.include[Events](updatedEvents)
-      }
+
+  type ProgramDependencies = Events with EventGenerator with Consumption with Counter with Sim
+  val startData = Map[Any, dataset[_]]()
+    .register[Events](new Events)
+    .register[EventGenerator](new EventGenerator)
+    .register[Consumption](new Consumption)
+    .register[Counter](new Counter)
+    .register[Sim](new Sim)
+  def main(args: Array[String]): Unit = {
+    val dat = (new Prog).value.flatMap[Prog].flatMap[Prog].flatMap[Prog]
+    //val res = dat.calc[SpendEvents].fetch[SpendEvents].get.value(1)
+    val formula = dat.fetch[Events].get.formula
+    println(dat.context.valueView())
+    println(s"formula:${formula}")
+  }
+  
+  //trait balanced[From <: model[ProgramDependencies, From] with TerminalType[Double], To <: model[ProgramDependencies, To] with TerminalType[Double], self <: balanced[_, _, self]] extends directive[ProgramDependencies with From with To, self]
+  def prog(src:dataset[ProgramDependencies]):Option[Prog] = for {
+    eventgenerator <- src.map[EventGenerator].fetch[EventGenerator]
+    newevents = eventgenerator.value
+    currentevents <- src.fetch[Events]
+    updatedEvents = currentevents.addEvents(newevents)
+  }yield new Prog {
+    override val value: dataset[ProgramDependencies] = {
+      val t = src.include[Events](updatedEvents).calc[Counter].calc[Counter].calc[Counter]
+      val s = src.map[EventGenerator].calc[Counter].map[EventGenerator].map[EventGenerator]//.fetch[EventGenerator]
+      t
     }
 
-//    override def withContext(ctx: contexttype): dataset[Prog] = new Prog{
-//      override val context = ctx
-//    }
-    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](Map[Any,dataset[_]]().register[Events](new Events))
+    //override def iterate(src: dataset[ProgramDependencies]): Option[Prog] = prog2(src)
   }
-  case class andThen[
-    A<:model[A,A],
-    B<:model[B,B]
-  ](implicit
-    atag:TypeTag[A],
-    btag:TypeTag[B],
-    alltag:TypeTag[andThen[A,B]]
-   ) extends directive [A with B,andThen[A,B]] with TerminalType [dataset[A with B]]{
-    override def iterate(src: dataset[A with B]): andThen[A,B] = new andThen[A,B] {
-      override val value = src.calc[A].calc[B]
-    }
+  def prog2(src:dataset[ProgramDependencies]):Option[Prog] = for {
+    eventgenerator <- src.map[EventGenerator].fetch[EventGenerator]
+    newevents = eventgenerator.value
+    currentevents <- src.fetch[Events]
+    updatedEvents = currentevents.addEvents(newevents)
 
-    override val value: dataset[A with B] = null
+  }yield new Prog {
+    override val value: dataset[ProgramDependencies] = src.include[Events](currentevents)
   }
 
-  def main(args:Array[String]):Unit = {
-  val dat = data[Prog](Map[Any,dataset[_]]().register[Prog](new Prog)).calc[Prog].calc[Prog].calc[Prog].fetch[Prog].get.value
-    val res = dat.fetch[Events].get.value
-    println(res)
+  case class Sim() extends axiom[Sim] with TerminalType[String] {
+    override val value: String = "all"
+  }
+  case class Prog() extends directive[ProgramDependencies, Prog]{
+    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](startData)
+    override def iterate(src: dataset[ProgramDependencies]): Option[Prog] = for{
+      sim <- src.fetch[Sim]
+      simType = sim.value
+      res <- (if (simType == "Empty") prog2(src) else prog(src))
+    }yield res
+
   }
 }

@@ -1,39 +1,33 @@
 package src.main.scala.test
 
 import Typical.core.{grammar, typeable}
-import Typical.core.typeable.{TerminalType, dataset, model}
-
+import scala.reflect.runtime.universe._
 package object EventHandler{
   import grammar._
   import typeable._
 
-  type EventDependencies = Events
-  type SpendEventDependencies = Events
   trait Event{
     val amount:Double
   }
-  case class spendEvent(amount:Double) extends Event
-  case class SpendEvents() extends model[SpendEventDependencies,SpendEvents] with TerminalType[Seq[spendEvent]] {
-    override def iterate(src: dataset[SpendEventDependencies]): SpendEvents = new SpendEvents{
-      override val value: Seq[spendEvent] = src.fetch[Events].get.currentEventStore.collect({case se:spendEvent => se})
-    }
-    override val value: Seq[spendEvent] = Seq()
-  }
+
+  case class spendEvent(amount:Double,Year:Int) extends Event
+
+  type dep = Events
 
   case class Events() extends model[Events,Events] with TerminalType[Seq[Event]] {
-    val currentEventStore:Seq[Event] = Seq()
-    override def iterate(src: dataset[EventDependencies]): Events = src.fetch[Events].get
-
+    val formula:String = ""
+    override def iterate(src: dataset[dep]): Option[Events] = for{
+      events <- src.fetch[Events]
+    }yield events
+    //set initial value
     override val value:Seq[Event] = Seq()
     def addEvents(events:Seq[Event]):Events = {
       val currevents = this.value
+      val currformula = this.formula
       new Events {
         override val value: Seq[Event] = currevents ++ events
+        override val formula: String = currformula + events.map(e => s" + ${e.amount}").foldLeft("")(_ + _)
       }
     }
   }
-  //val ev = dat.fetch[Events]
-  //val updtd = ev.addevents(someevents)
-  //dat.include[Events](updtd)
-  //
 }

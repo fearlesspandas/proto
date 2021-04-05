@@ -1,47 +1,144 @@
 package Typical.core
+import Grammar.{Calc, TMap}
+
 import scala.reflect.runtime.universe._
 package object grammar {
   import typeable._
-  implicit class Calcer[A<:dataset[_]](src:dataset[A]){
-
-    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with U] = {
+  implicit class Calcer2[A<:Calc[A,_]](src:Calc[A,_]){
+    def calc4[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Calc[A,U] = {
       val instU = build[U]
-//      instU match {
-//        case d:directive[A,U] =>
-//          implicit val dir:d.type = d
-//          calcDirective[d.type]
-//      }
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else src.withContext(src.context.updated(instU.id,instU.iterate(src)))
-        .asInstanceOf[dataset[A with U]]
-    }
-    def calcInferred[U<:model[A,U]](implicit atag:TypeTag[A],ufunc: () => U):dataset[A with U] = {
-      val u = ufunc()
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else src.withContext(src.context.updated(u.id,u.iterate(src)))
-        .asInstanceOf[dataset[A with U]]
-    }
-    def calcDirective[U<:directive[_>:A<:dataset[_],U] with model[A,U]](implicit atag:TypeTag[A],u:U):dataset[A] = {
       if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
       else {
-        val res = u.iterate(src).value
-        src.withContext(res.context)
+        val uState = src.context.get(instU.id).map{case u:U if u != null => u;case _ => instU}.getOrElse(instU).asInstanceOf[U]
+        val nextU = uState.iterate(src)
+        if (nextU.isDefined) {
+          val c = Calc.apply[A,U](src, nextU.get)
+          c.withContext(src.context.updated(instU.id, nextU.get))
+            .asInstanceOf[Calc[A,U]]
+          //.asInstanceOf[dataset[A with U]]
+        }
+        else throw new Error(s"Error while processing calc[${instU.id}]")
       }
     }
-    def calcAs[U<:model[A,U] with TerminalType[tpe],tpe](implicit ttag:TypeTag[U], atag:TypeTag[A]):dataset[A with U] = {
-      val instA = build[U]
+  }
+  implicit class Calcer[A<:dataset[_]](src:dataset[A]){
+    /*
+      Takes a model U with dependency set A that produces a U. Returns a (possibly expanded) dataset with both A and U
+      ex, A,B,C are datasets, X is a model[A with B with C,X], and dataset[A with B with C].calc[X] will return
+      a dataset[A with B with C with X]. If X is either A,B or C then an updated dataset of type dataset[A with B with C]
+      will be returned
+     */
+    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Calc[A,U] = {
+      val instU = build[U]
       if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else src.withContext(src.context.updated(instA.id,instA.iterate(src)))
-        .asInstanceOf[dataset[A with U]]
+      else {
+        val uState = src.context.get(instU.id).map{case u:U if u != null => u;case _ => instU}.getOrElse(instU).asInstanceOf[U]
+        val nextU = uState.iterate(src)
+        if (nextU.isDefined) {
+          val c = Calc.apply[A,U](src, nextU.get)
+          c.withContext(src.context.updated(instU.id, nextU.get))
+            .asInstanceOf[Calc[A,U]]
+            //.asInstanceOf[dataset[A with U]]
+        }
+        else throw new Error(s"Error while processing calc[${instU.id}]")
+      }
     }
+
+    /*
+      Takes a model U with dependency set A, and returns a dataset[A] with an updated value for the output
+      of U. This method is similar to calc except in the following behavior:
+        1.calc allows for the ability to expand a dataset[A] to a dataset[A with B], whereas map will always
+          return a dataset[A]
+        2.map allows for the model U to have an output that is not of type U, whereas calc requires that U models type U.
+          i.e. U can be of type model[A with B, C] where C != U, and calling dataset[A with B with C].map[U] will return
+          a dataset[A with B with C] with an updated value for C.
+     */
+    def map[U<:model[A,_>:dataset[A]<:dataset[_]]](implicit ttag:TypeTag[U],atag:TypeTag[A]):TMap[A,U] = {
+      val instU = build[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else {
+        val b = instU.iterate(src)
+        if (b.isDefined) {
+         val m = TMap.apply[A,U](src,instU)
+          m.withContext(src.context.updated(b.get.id,b.get))
+        }.asInstanceOf[TMap[A,U]] else throw new Error(s"Error while processing map[$instU]")
+      }
+    }
+    /*
+      Same thing as the calc method, except U's model output (of type U) also has its local context updated to match that of
+      parent dataset that's calling it. WARNING: this requires any defined models that this is called on to have an overridden
+      definition for the 'withContext' method on dataset[_], otherwise this will result in undefined behavior
+     */
+    def calcFullContext[U<:model[A,U]](implicit ttag:TypeTag[U], atag:TypeTag[A]):dataset[A with U] = {
+      val instU = build[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else {
+        val uState = src.context.get(instU.id).map{case u:U if u != null => u;case _ => instU}.getOrElse(instU).asInstanceOf[U]
+        val nextModel = uState.iterate(src)
+        if (nextModel.isDefined)
+        src.withContext(src.context.updated(instU.id,nextModel.get.withContext(src.context)))
+          .asInstanceOf[dataset[A with U]]
+        else
+          throw new Error(s"trouble processing calcFullContext[${instU.id}]")
+      }
+    }
+//    def calcInferred[U<:model[A,U]](implicit atag:TypeTag[A],ufunc: () => U):dataset[A with U] = {
+//      val u = ufunc()
+//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+//      else src.withContext(src.context.updated(u.id,u.iterate(src)))
+//        .asInstanceOf[dataset[A with U]]
+//    }
+//    def calcDirective[U<:directive[_>:A<:dataset[_],U] with model[A,U]](implicit atag:TypeTag[A],u:U):dataset[A] = {
+//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+//      else {
+//        val res = u.iterate(src).value
+//        src.withContext(res.context)
+//      }
+//    }
+//    def calcAs[U<:model[A,U] with TerminalType[tpe],tpe](implicit ttag:TypeTag[U], atag:TypeTag[A]):dataset[A with U] = {
+//      val instA = build[U]
+//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+//      else src.withContext(src.context.updated(instA.id,instA.iterate(src)))
+//        .asInstanceOf[dataset[A with U]]
+//    }
+
+    /*
+      Takes arguments model U with dependency set A, and dataset B wher B is U's output type. Returns a dataset[A with B].
+      This method closes the gap between the functionality of calc and map, where calcFor can be used to update or expand a dataset
+      to have a new value for B where B may or may not be equal to U.
+     */
     def calcFor[U<:model[A,B],B<:dataset[_]](implicit tag:TypeTag[U], tagb:TypeTag[B],atag:TypeTag[A]):dataset[A with B] = {
       val instU = build[U]
       val instB = build[B]
       if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else src.withContext(src.context.updated(instB.id,instU.iterate(src)))
-        .asInstanceOf[dataset[A with B]]
+      else {
+        val next  = instU.iterate(src)
+        if (next.isDefined)
+        src.withContext(src.context.updated(instB.id,next.get))
+          .asInstanceOf[dataset[A with B]]
+        else throw new Error(s"Error while processing calcFor[${instU.id},${instB.id}]")
+      }
     }
-    //def lift[U<:TerminalType[tp2 => tp2] with model[A,B],B<:dataset[_],tp1,tp2]()
+    /*
+      Takes arguments U where U is a model with dependency set A and output type U, that has a guarenteed value
+      in its output of type dataset[_<:A], and returns a dataset[A] D where all values for types in D are either updated
+      by U's iteration function, or carried over from the src dataset[A]
+
+      ex: src:dataset[A with B with C]
+          prog:model[A with B,prog] with TerminalType[dataset[A with B]] (i.e. prog's iterator is of type
+                                                                          dataset[A with B] => (prog with value: dataset[A with B])
+                                                                          )
+          src.flatmap[prog] is then of type dataset[A with B with C] where A and B were updated by prog,
+                                                                      and C's value is unchanged from src
+     */
+    def flatMap[U<:model[A,U] with TerminalType[_<:dataset[A]]](implicit taga:TypeTag[A],tagu:TypeTag[U]):dataset[A] = {
+      val instU = build[U]
+      val nextDataset = instU.iterate(src)
+      if (nextDataset.isDefined)
+      nextDataset.get.value
+      else
+        src
+    }
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){
     def fetchAs[U>:A<:dataset[_] with TerminalType[tpe],tpe](implicit ttag:TypeTag[U], atag:TypeTag[A]):Option[tpe] =
@@ -58,19 +155,19 @@ package object grammar {
         case _ => None
     }).asInstanceOf[Option[U]]
   }
-  implicit class ContextBuilder(m:Map[Any,Any]){
+  implicit class ContextBuilder(m:Map[idtype,dataset[_]]){
     def register[U<:dataset[_]](value:U)(implicit ttag:TypeTag[U]):contexttype = m.updated(build[U].id,value).asInstanceOf[contexttype]
     def remove[U<:dataset[_]](implicit ttag:TypeTag[U]):contexttype = m.toSeq.filterNot(p => p._1 == build[U].id).toMap.asInstanceOf[contexttype]
   }
-  implicit class ContextViewer(m:Map[Any,dataset[_]]){
-    def valueView():Map[Any,Any] = m.map( p =>
+  implicit class ContextViewer(m:Map[idtype,dataset[_]]){
+    def valueView():Map[idtype,Any] = m.toList.map( p =>
     {
       val k = p._1
       val v:dataset[_] = p._2
       val prettyval = if(v.isInstanceOf[TerminalType[_]]) v.asInstanceOf[TerminalType[_]].value
       else v.value
       k -> prettyval
-    })
+    }).toMap
   }
   implicit class Includer[A<:dataset[_]](a:dataset[A]){
     def include[U<:dataset[_]](value:U)(implicit ttag:TypeTag[U]):dataset[A with U] = {
