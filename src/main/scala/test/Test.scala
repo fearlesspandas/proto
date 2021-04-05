@@ -1,5 +1,6 @@
 package src.main.scala.test
 
+import Grammar.Calc
 import Typical.core._
 import src.main.scala.test.Consumption.{Consumption, Counter}
 import src.main.scala.test.EventGenerator.EventGenerator
@@ -13,7 +14,7 @@ object runner {
 
   import scala.reflect.runtime.universe._
 
-  type ProgramDependencies = Events with EventGenerator with Consumption with Counter with Sim
+  type ProgramDependencies = Events with EventGenerator with Consumption with Counter with Sim //with Calc[Events with Counter,Counter]
   val startData = Map[Any, dataset[_]]()
     .register[Events](new Events)
     .register[EventGenerator](new EventGenerator)
@@ -30,21 +31,20 @@ object runner {
   
   //trait balanced[From <: model[ProgramDependencies, From] with TerminalType[Double], To <: model[ProgramDependencies, To] with TerminalType[Double], self <: balanced[_, _, self]] extends directive[ProgramDependencies with From with To, self]
   def prog(src:dataset[ProgramDependencies]):Option[Prog] = for {
-    eventgenerator <- src.map[EventGenerator].fetch[EventGenerator]
+    eventgenerator <- src.calc[Counter].map[EventGenerator].fetch[EventGenerator]
+    thing = src.calc[Counter].map[EventGenerator]
     newevents = eventgenerator.value
     currentevents <- src.fetch[Events]
     updatedEvents = currentevents.addEvents(newevents)
   }yield new Prog {
     override val value: dataset[ProgramDependencies] = {
       val t = src.include[Events](updatedEvents).calc[Counter].calc[Counter].calc[Counter]
-      val s = src.map[EventGenerator].calc[Counter].map[EventGenerator].map[EventGenerator]//.fetch[EventGenerator]
+      val s = src.calc[Counter].map[EventGenerator].calc[Counter].map[EventGenerator].map[EventGenerator]//.fetch[EventGenerator]
       t
     }
-
-    //override def iterate(src: dataset[ProgramDependencies]): Option[Prog] = prog2(src)
   }
   def prog2(src:dataset[ProgramDependencies]):Option[Prog] = for {
-    eventgenerator <- src.map[EventGenerator].fetch[EventGenerator]
+    eventgenerator <- src.calc[Counter].map[EventGenerator].fetch[EventGenerator]
     newevents = eventgenerator.value
     currentevents <- src.fetch[Events]
     updatedEvents = currentevents.addEvents(newevents)

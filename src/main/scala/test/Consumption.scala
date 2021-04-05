@@ -2,9 +2,12 @@ package src.main.scala.test
 import Typical.core.grammar._
 import Typical.core.typeable._
 import EventHandler._
+import Grammar.Calc
+import src.main.scala.test.EventGenerator.EventGenerator
+import src.main.scala.test.runner.{ProgramDependencies, Sim}
 object Consumption{
-  type dep = Events with Counter// with Consumption
-  var counter  = 0
+  type progdep = ProgramDependencies
+  type dep = Events with Counter with Calc[progdep,Counter]
   case class Consumption() extends model[dep,Consumption] with TerminalType[Seq[Event]] {
     override def iterate(src: dataset[dep]): Option[Consumption] = for {
       counter <- src.fetch[Counter]
@@ -32,7 +35,7 @@ object Consumption{
       override val value = curr + 1
     }
 
-    override val value: Int = 0
+    override val value: Int = -1
   }
 }
 
