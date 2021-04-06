@@ -1,11 +1,31 @@
 package Typical.core
-import Grammar.{Calc, TMap}
+import Grammar.{Calc, FlatMap, TMap}
 
 import scala.reflect.runtime.universe._
 package object grammar {
   import typeable._
-  implicit class Calcer2[A<:Calc[A,_]](src:Calc[A,_]){
-    def calc4[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Calc[A,U] = {
+
+  implicit class Calcer[A<:dataset[_]](src:dataset[A]){
+    /*
+      Takes a model U with dependency set A that produces a U. Returns a (possibly expanded) dataset with both A and U
+      ex, A,B,C are datasets, X is a model[A with B with C,X], and dataset[A with B with C].calc[X] will return
+      a dataset[A with B with C with X]. If X is either A,B or C then an updated dataset of type dataset[A with B with C]
+      will be returned
+     */
+    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with U] = {
+      val instU = build[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else {
+        val uState = src.context.get(instU.id).map{case u:U if u != null => u;case _ => instU}.getOrElse(instU).asInstanceOf[U]
+        val nextU = uState.iterate(src)
+        if (nextU.isDefined) {
+          src.withContext(src.context.updated(instU.id, nextU.get))
+            .asInstanceOf[dataset[A with U]]
+        }
+        else throw new Error(s"Error while processing calc[${instU.id}]")
+      }
+    }
+    def calcT[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with U with Calc[A,U]] = {
       val instU = build[U]
       if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
       else {
@@ -20,30 +40,6 @@ package object grammar {
         else throw new Error(s"Error while processing calc[${instU.id}]")
       }
     }
-  }
-  implicit class Calcer[A<:dataset[_]](src:dataset[A]){
-    /*
-      Takes a model U with dependency set A that produces a U. Returns a (possibly expanded) dataset with both A and U
-      ex, A,B,C are datasets, X is a model[A with B with C,X], and dataset[A with B with C].calc[X] will return
-      a dataset[A with B with C with X]. If X is either A,B or C then an updated dataset of type dataset[A with B with C]
-      will be returned
-     */
-    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Calc[A,U] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else {
-        val uState = src.context.get(instU.id).map{case u:U if u != null => u;case _ => instU}.getOrElse(instU).asInstanceOf[U]
-        val nextU = uState.iterate(src)
-        if (nextU.isDefined) {
-          val c = Calc.apply[A,U](src, nextU.get)
-          c.withContext(src.context.updated(instU.id, nextU.get))
-            .asInstanceOf[Calc[A,U]]
-            //.asInstanceOf[dataset[A with U]]
-        }
-        else throw new Error(s"Error while processing calc[${instU.id}]")
-      }
-    }
-
     /*
       Takes a model U with dependency set A, and returns a dataset[A] with an updated value for the output
       of U. This method is similar to calc except in the following behavior:
@@ -53,13 +49,23 @@ package object grammar {
           i.e. U can be of type model[A with B, C] where C != U, and calling dataset[A with B with C].map[U] will return
           a dataset[A with B with C] with an updated value for C.
      */
-    def map[U<:model[A,_>:dataset[A]<:dataset[_]]](implicit ttag:TypeTag[U],atag:TypeTag[A]):TMap[A,U] = {
+    def map[U<:model[A,_>:dataset[A]<:dataset[_]]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A] = {
       val instU = build[U]
       if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
       else {
         val b = instU.iterate(src)
         if (b.isDefined) {
-         val m = TMap.apply[A,U](src,instU)
+          src.withContext(src.context.updated(b.get.id,b.get))
+        } else throw new Error(s"Error while processing map[$instU]")
+      }
+    }
+    def mapT[U<:model[A,_>:dataset[A]<:dataset[_]]](implicit ttag:TypeTag[U],atag:TypeTag[A]):dataset[A with TMap[A,U]] = {
+      val instU = build[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      else {
+        val b = instU.iterate(src)
+        if (b.isDefined) {
+          val m = TMap.apply[A,U](src,instU)
           m.withContext(src.context.updated(b.get.id,b.get))
         }.asInstanceOf[TMap[A,U]] else throw new Error(s"Error while processing map[$instU]")
       }
@@ -135,9 +141,23 @@ package object grammar {
       val instU = build[U]
       val nextDataset = instU.iterate(src)
       if (nextDataset.isDefined)
-      nextDataset.get.value
+      {
+        //val f = FlatMap.apply[A,U](src,nextDataset.get)
+        nextDataset.get.value.asInstanceOf[dataset[A]]
+      }
       else
-        src
+        throw new Error(s"Error while processing flatMap[${instU.id}]")
+    }
+    def flatMapT[U<:model[A,U] with TerminalType[_>:dataset[A]<:dataset[_]]](implicit taga:TypeTag[A],tagu:TypeTag[U]):dataset[A with FlatMap[A,U]] = {
+      val instU = build[U]
+      val nextDataset = instU.iterate(src)
+      if (nextDataset.isDefined)
+      {
+        val f = FlatMap.apply[A,U](src,nextDataset.get)
+        f.withContext(nextDataset.get.value.context)
+      }
+      else
+        throw new Error(s"Error while processing flatMap[${instU.id}]")
     }
   }
   implicit class Fetcher[A<:dataset[_]](a:dataset[A]){

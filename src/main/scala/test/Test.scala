@@ -22,7 +22,9 @@ object runner {
     .register[Counter](new Counter)
     .register[Sim](new Sim)
   def main(args: Array[String]): Unit = {
-    val dat = (new Prog).value.flatMap[Prog].flatMap[Prog].flatMap[Prog]
+
+    val dat = (new Prog).value.flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog].flatMap[Prog]
+      //(0 to 100).foldLeft((new Prog).value)((a,_) => a.flatMap[Prog])
     //val res = dat.calc[SpendEvents].fetch[SpendEvents].get.value(1)
     val formula = dat.fetch[Events].get.formula
     println(dat.context.valueView())
@@ -31,20 +33,20 @@ object runner {
   
   //trait balanced[From <: model[ProgramDependencies, From] with TerminalType[Double], To <: model[ProgramDependencies, To] with TerminalType[Double], self <: balanced[_, _, self]] extends directive[ProgramDependencies with From with To, self]
   def prog(src:dataset[ProgramDependencies]):Option[Prog] = for {
-    eventgenerator <- src.calc[Counter].map[EventGenerator].fetch[EventGenerator]
-    thing = src.calc[Counter].map[EventGenerator]
+    eventgenerator <- src.calcT[Counter].map[EventGenerator].fetch[EventGenerator]
+    thing = src.calcT[Counter].map[EventGenerator]
     newevents = eventgenerator.value
     currentevents <- src.fetch[Events]
     updatedEvents = currentevents.addEvents(newevents)
   }yield new Prog {
     override val value: dataset[ProgramDependencies] = {
       val t = src.include[Events](updatedEvents).calc[Counter].calc[Counter].calc[Counter]
-      val s = src.calc[Counter].map[EventGenerator].calc[Counter].map[EventGenerator].map[EventGenerator]//.fetch[EventGenerator]
+      val s = src.calcT[Counter].map[EventGenerator].calc[Counter].map[EventGenerator].map[EventGenerator]//.fetch[EventGenerator]
       t
     }
   }
   def prog2(src:dataset[ProgramDependencies]):Option[Prog] = for {
-    eventgenerator <- src.calc[Counter].map[EventGenerator].fetch[EventGenerator]
+    eventgenerator <- src.calcT[Counter].map[EventGenerator].fetch[EventGenerator]
     newevents = eventgenerator.value
     currentevents <- src.fetch[Events]
     updatedEvents = currentevents.addEvents(newevents)
