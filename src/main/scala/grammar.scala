@@ -6,7 +6,12 @@ import Grammar.TMap
 import scala.reflect.runtime.universe._
 package object grammar {
   import typeable._
-
+  implicit class CalcerOp[A<:dataset[_]](src:Option[dataset[A]]){
+    def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[dataset[A with U]] = {
+      src.flatMap(_.calc[U])
+    }
+    def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], atag: TypeTag[A]): Option[U] = src.flatMap(_.fetch[U])
+  }
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
     /*
       Takes a model U with dependency set A that produces a U. Returns a (possibly expanded) dataset with both A and U
@@ -120,26 +125,6 @@ package object grammar {
           throw new Error(s"trouble processing calcFullContext[${instU.id}]")
       }
     }
-//    def calcInferred[U<:model[A,U]](implicit atag:TypeTag[A],ufunc: () => U):dataset[A with U] = {
-//      val u = ufunc()
-//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-//      else src.withContext(src.context.updated(u.id,u.iterate(src)))
-//        .asInstanceOf[dataset[A with U]]
-//    }
-//    def calcDirective[U<:directive[_>:A<:dataset[_],U] with model[A,U]](implicit atag:TypeTag[A],u:U):dataset[A] = {
-//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-//      else {
-//        val res = u.iterate(src).value
-//        src.withContext(res.context)
-//      }
-//    }
-//    def calcAs[U<:model[A,U] with TerminalType[tpe],tpe](implicit ttag:TypeTag[U], atag:TypeTag[A]):dataset[A with U] = {
-//      val instA = build[U]
-//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-//      else src.withContext(src.context.updated(instA.id,instA.iterate(src)))
-//        .asInstanceOf[dataset[A with U]]
-//    }
-
     /*
       Takes arguments model U with dependency set A, and dataset B wher B is U's output type. Returns a dataset[A with B].
       This method closes the gap between the functionality of calc and map, where calcFor can be used to update or expand a dataset
@@ -164,7 +149,7 @@ package object grammar {
     }
     /*
       Takes arguments U where U is a model with dependency set A and output type U, that has a guarenteed value
-      in its output of type dataset[_<:A], and returns a dataset[A] D where all values for types in D are either updated
+      in its output of type dataset[_>:A], and returns D:dataset[A]  where all values for types in D are either updated
       by U's iteration function, or carried over from the src dataset[A]
 
       ex: src:dataset[A with B with C]
@@ -174,15 +159,14 @@ package object grammar {
           src.flatmap[prog] is then of type dataset[A with B with C] where A and B were updated by prog,
                                                                       and C's value is unchanged from src
      */
-    def flatMap[U <: model[A, U] with TerminalType[_ <: dataset[A]]](
+    def flatMap[U <: model[A, U] with TerminalType[_ >: dataset[A]<:dataset[_]]](
       implicit taga: TypeTag[A],
       tagu: TypeTag[U]
     ): dataset[A] = {
       val instU = build[U]
       val nextDataset = instU.iterate(src)
       if (nextDataset.isDefined) {
-        //val f = FlatMap.apply[A,U](src,nextDataset.get)
-        nextDataset.get.value.asInstanceOf[dataset[A]]
+        src.withContext(src.context ++ nextDataset.get.value.context)
       } else
         throw new Error(s"Error while processing flatMap[${instU.id}]")
     }
@@ -194,7 +178,7 @@ package object grammar {
       val nextDataset = instU.iterate(src)
       if (nextDataset.isDefined) {
         val f = FlatMap.apply[A, U](src, nextDataset.get)
-        f.withContext(nextDataset.get.value.context)
+        f.withContext(src.context ++ nextDataset.get.value.context)
       } else
         throw new Error(s"Error while processing flatMap[${instU.id}]")
     }

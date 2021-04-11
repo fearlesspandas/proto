@@ -20,11 +20,11 @@ package object EventHandler {
 
   type dep = Events with Consumption with Counter
 
-  case class Events() extends model[dep, Events] with TerminalType[Seq[Event]] {
+  case class Events() extends model[Events with Consumption with Counter, Events] with TerminalType[Seq[Event]] {
     val formula: String = ""
     override def iterate(src: dataset[dep]): Option[Events] =
       for {
-        consumptionRun <- src.calc[Consumption]//.fetch[Consumption]
+        consumptionRun <- src.calc[Consumption].calc[Consumption]//.fetch[Consumption]
         consumptionModel <- consumptionRun.fetch[Consumption]
         currEvents <- src.fetch[Events]
       } yield new Events {

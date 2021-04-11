@@ -51,7 +51,7 @@ object runner {
     for {
       newEvents <- src.calcT[Counter].calc[Events]
     } yield new Prog {
-      override val value: dataset[ProgramDependencies] = newEvents
+      override val value: dataset[ProgramDependencies] = newEvents.flatMap[Prog2]
     }
   def prog2(src: dataset[ProgramDependencies]): Option[Prog] =
     for {
@@ -61,6 +61,15 @@ object runner {
       override val value: dataset[ProgramDependencies] = src//.include[Events](currentevents)
     }
 
+  case class Prog2() extends directive[Events with Consumption with Counter,Prog2] {
+    override def iterate(src: dataset[Events with Consumption with Counter]): Option[Prog2] = for{
+      x <- src.calc[Counter]
+    }yield new Prog2 {
+      override val value = x
+    }
+
+    override val value: dataset[Events with Consumption with Counter] = data[Events with Consumption with Counter](Map[Any,dataset[_]]().register[Events](new Events))
+  }
   case class Sim() extends axiom[Sim] with TerminalType[String] {
     override val value: String = "all"
   }
