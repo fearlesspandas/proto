@@ -70,7 +70,7 @@ object runner {
 
     override val value: dataset[Events with Consumption with Counter] = data[Events with Consumption with Counter](Map[Any,dataset[_]]().register[Events](new Events))
   }
-  case class Sim() extends axiom[Sim] with TerminalType[String] {
+  case class Sim() extends axiom[Sim] with produces[String] {
     override val value: String = "all"
   }
   case class Prog() extends directive[ProgramDependencies, Prog] {

@@ -45,7 +45,7 @@ package object typeable {
   type idtype = Any
 
 
-  trait TerminalType[+T]{
+  trait produces[+T]{
     val value:T// = null.asInstanceOf[T]
   }
 
@@ -83,7 +83,7 @@ package object typeable {
   //
   //    }
 
-  trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with TerminalType[dataset[dependencies]]{
+  trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with produces[dataset[dependencies]]{
 
   }
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {

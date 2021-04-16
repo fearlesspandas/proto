@@ -11,7 +11,7 @@ import src.main.scala.test.runner.Sim
 object EventGenerator {
   type progdep = Events with EventGenerator with Consumption with Counter with Sim
   type dep = Events with Consumption with Counter with Calc[Events with EventGenerator with Consumption with Counter with Sim, Counter]
-  case class EventGenerator() extends model[dep, Events] with TerminalType[Seq[Event]] {
+  case class EventGenerator() extends model[dep, Events] with produces[Seq[Event]] {
     override def iterate(src: dataset[dep]): Option[Events] =
       for {
         consumptionRun <- src.calc[Consumption]//.fetch[Consumption]

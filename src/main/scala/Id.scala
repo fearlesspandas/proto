@@ -1,5 +1,5 @@
 package Typical.core
-import Typical.core.typeable.{TerminalType, dataset, model}
+import Typical.core.typeable.{produces, dataset, model}
 import Typical.core.grammar._
 
 package object Id{

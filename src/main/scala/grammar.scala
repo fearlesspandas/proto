@@ -159,7 +159,7 @@ package object grammar {
           src.flatmap[prog] is then of type dataset[A with B with C] where A and B were updated by prog,
                                                                       and C's value is unchanged from src
      */
-    def flatMap[U <: model[A, U] with TerminalType[_ >: dataset[A]<:dataset[_]]](
+    def flatMap[U <: model[A, U] with produces[_ >: dataset[A]<:dataset[_]]](
       implicit taga: TypeTag[A],
       tagu: TypeTag[U]
     ): dataset[A] = {
@@ -170,7 +170,7 @@ package object grammar {
       } else
         throw new Error(s"Error while processing flatMap[${instU.id}]")
     }
-    def flatMapT[U <: model[A, U] with TerminalType[_ >: dataset[A] <: dataset[_]]](
+    def flatMapT[U <: model[A, U] with produces[_ >: dataset[A] <: dataset[_]]](
       implicit taga: TypeTag[A],
       tagu: TypeTag[U]
     ): dataset[A with FlatMap[A, U]] = {
@@ -184,7 +184,7 @@ package object grammar {
     }
   }
   implicit class Fetcher[A <: dataset[_]](a: dataset[A]) {
-    def fetchAs[U >: A <: dataset[_] with TerminalType[tpe], tpe](
+    def fetchAs[U >: A <: dataset[_] with produces[tpe], tpe](
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): Option[tpe] =
@@ -216,7 +216,7 @@ package object grammar {
           val k = p._1
           val v: dataset[_] = p._2
           val prettyval =
-            if (v.isInstanceOf[TerminalType[_]]) v.asInstanceOf[TerminalType[_]].value
+            if (v.isInstanceOf[produces[_]]) v.asInstanceOf[produces[_]].value
             else null
           k -> prettyval
         })
@@ -248,7 +248,7 @@ package object grammar {
   implicit class Iterator[A <: dataset[_]](a: dataset[A]) {
     def iter[F <: dataset[A] => dataset[A]](f: F): dataset[A] = f(a)
     def transact[U >: A <: dataset[_]](f: dataset[A] => dataset[U]): dataset[U] = f(a)
-    def run[F <: dataset[A] => dataset[B] with TerminalType[tpe], B <: dataset[A], tpe](
+    def run[F <: dataset[A] => dataset[B] with produces[tpe], B <: dataset[A], tpe](
       f: F
     ): dataset[B] = a.withContext(a.context.updated(f(a).id, f(a))).asInstanceOf[dataset[B]]
   }

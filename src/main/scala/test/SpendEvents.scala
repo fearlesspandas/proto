@@ -5,7 +5,7 @@ import Typical.core.grammar._
 import src.main.scala.test.EventHandler.{Events, spendEvent}
 object SpendEvents{
   type dep = Events
-  case class SpendEvents() extends model[dep,SpendEvents] with TerminalType[Int => Seq[spendEvent]] {
+  case class SpendEvents() extends model[dep,SpendEvents] with produces[Int => Seq[spendEvent]] {
     override def iterate(src: dataset[dep]): Option[SpendEvents] =for{
       eventLog <- src.fetch[Events]
       events = eventLog.value

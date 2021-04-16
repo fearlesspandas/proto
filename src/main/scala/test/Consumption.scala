@@ -9,7 +9,7 @@ import src.main.scala.test.runner.Sim
 object Consumption {
   type progdep = ProgramDependencies
   type dep = Events with Counter //with Calc[progdep, Counter]
-  case class Consumption() extends model[dep, Consumption] with TerminalType[Seq[Event]] {
+  case class Consumption() extends model[dep, Consumption] with produces[Seq[Event]] {
     override def iterate(src: dataset[dep]): Option[Consumption] =
       for {
         counter <- src.fetch[Counter]
@@ -26,7 +26,7 @@ object Consumption {
       }
     }
   }
-  case class Counter() extends model[Counter, Counter] with TerminalType[Int] {
+  case class Counter() extends model[Counter, Counter] with produces[Int] {
     override def iterate(src: dataset[Counter]): Option[Counter] =
       for {
         counter <- src.fetch[Counter]
