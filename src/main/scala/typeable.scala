@@ -65,16 +65,23 @@ package object typeable {
     override def withContext(ctx: contexttype): dataset[A] = null
   }
 
-  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with TerminalType[Any] {self =>
+  trait modelBase[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with TerminalType[Any] {self =>
     def iterate(src:dataset[dependencies]):Option[output]
-    override final val id = this.toString
+    //override final val id = this.toString
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[output] = null
   }
 
-//  trait hiddenModel[-dependencies <: dataset[_], +output <: dataset[_]] extends model[dependencies,output]{
-//   implicit def create():hiddenModel[dependencies,output]
-//  }
+    trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends modelBase[dependencies,output]{
+      override final val id = this.toString.filterNot(c => c == ')' || c == '(')
+    }
+  //
+  //    trait Mmodel[dep,A,T] extends model[dep,A]{
+  //      val f:dataset[dep] => T
+  //    }
+  //    def gen[T,dep](f:dataset[dep] => T):model[dep,_<:produces[T]] = {
+  //
+  //    }
   trait hiddenModel[self<:model[_,_]] {
     implicit def create():self
   }
