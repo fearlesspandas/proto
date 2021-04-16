@@ -217,7 +217,7 @@ package object grammar {
           val v: dataset[_] = p._2
           val prettyval =
             if (v.isInstanceOf[TerminalType[_]]) v.asInstanceOf[TerminalType[_]].value
-            else v.value
+            else null
           k -> prettyval
         })
         .toMap

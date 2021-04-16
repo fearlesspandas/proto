@@ -10,7 +10,7 @@ class FlatMap[dependencies<:dataset[_],prog<:model[dependencies,prog] with Termi
 
   override def id: idtype = null.asInstanceOf[idtype]
 
-  override val value: Any = null
+  //override val value: Any = null
 }
 object FlatMap{
   def apply[dependencies<:dataset[_],prog<:model[dependencies,prog] with TerminalType[_>:dataset[dependencies]<:dataset[_]]](dep:dataset[dependencies], f:prog):FlatMap[dependencies,prog] = new FlatMap[dependencies,prog](dep,f)

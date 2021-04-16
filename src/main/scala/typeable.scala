@@ -53,19 +53,19 @@ package object typeable {
     val terminalValue:dataset[_>:T<:dataset[_]] = null
   }
 
-  trait dataset[+A <: dataset[_]] extends TerminalType[Any] {
+  trait dataset[+A <: dataset[_]]{
     val context:contexttype
     def withContext(ctx:contexttype):dataset[A]
     def id:idtype
   }
 
-  trait axiom[A <: axiom[A]] extends dataset[A] with TerminalType[Any]{
+  trait axiom[A <: axiom[A]] extends dataset[A]{
     override final val id = this.getClass.getTypeName
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[A] = null
   }
 
-  trait modelBase[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with TerminalType[Any] {self =>
+  trait modelBase[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {self =>
     def iterate(src:dataset[dependencies]):Option[output]
     //override final val id = this.toString
     override val context: contexttype = Map()
@@ -82,9 +82,7 @@ package object typeable {
   //    def gen[T,dep](f:dataset[dep] => T):model[dep,_<:produces[T]] = {
   //
   //    }
-  trait hiddenModel[self<:model[_,_]] {
-    implicit def create():self
-  }
+
   trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with TerminalType[dataset[dependencies]]{
 
   }
@@ -92,8 +90,6 @@ package object typeable {
     override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
     override val id: idtype = null.asInstanceOf[idtype]
     def dataset = this.asInstanceOf[dataset[A]]
-
-    override val value: Any = null
   }
 
 }

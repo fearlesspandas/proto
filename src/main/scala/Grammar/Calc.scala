@@ -16,7 +16,7 @@ class Calc[dependencies<:dataset[_],output<:model[dependencies,output]](val dep:
 
   override def id: idtype = null.asInstanceOf[idtype]
 
-  override val value: Any = null
+  //override val value: Any = null
 }
 object Calc{
   def apply[dependencies<:dataset[_],output<:model[dependencies,output]](dep:dataset[dependencies],out:output):Calc[dependencies,output] = new Calc(dep,out)

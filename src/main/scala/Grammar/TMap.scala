@@ -11,7 +11,7 @@ class TMap[dependencies<:dataset[_],mapper<:model[dependencies,_>:dataset[depend
 
   override def id: idtype = null.asInstanceOf[idtype]
 
-  override val value: Any = null
+  //override val value: Any = null
 }
 object TMap{
   def apply[dependencies<:dataset[_],mapper<:model[dependencies,_>:dataset[dependencies]<:dataset[_]]](dep:dataset[dependencies],f:mapper):TMap[dependencies,mapper] = new TMap(dep,f)
