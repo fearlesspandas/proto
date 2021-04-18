@@ -59,10 +59,11 @@ package object typeable {
     def id:idtype
   }
 
-  trait axiom[A <: axiom[A]] extends dataset[A]{
+  trait axiom[A <: axiom[A,T],T] extends dataset[A] with produces[T]{
     override final val id = this.getClass.getTypeName
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[A] = null
+    def withValue(newVal:T):A
   }
 
   trait modelBase[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {self =>
@@ -76,12 +77,27 @@ package object typeable {
       override final val id = this.toString.filterNot(c => c == ')' || c == '(')
     }
   //
-  //    trait Mmodel[dep,A,T] extends model[dep,A]{
-  //      val f:dataset[dep] => T
-  //    }
-  //    def gen[T,dep](f:dataset[dep] => T):model[dep,_<:produces[T]] = {
-  //
-  //    }
+      trait Mmodel[dep<:dataset[_],A<:dataset[_],T] extends modelBase[dep,A] with produces[T]{
+        val f:dataset[dep] => (T,A)
+      }
+    class MmodelInstance[dep<:dataset[_],T,A<:axiom[A,T]](val f:dataset[dep] => (T,A),val value:T)(implicit tagA:TypeTag[A]) extends Mmodel[dep,A,T] {
+
+      override def id: idtype = build[A].id
+
+      override def iterate(src: dataset[dep]): Option[A] = {
+        val next = f(src)
+        Some(next._2.withValue(next._1))
+      }
+    }
+//      def gen[T,dep,dat<:dataset[_]](func:dataset[dep] => (T,dat)):model[dep,dat] with produces[T]= {
+//          new Mmodel[dep,dat,T] {
+//            override final val id = build[dat].id.toString
+//            override val f: dataset[dep] => (T, dat) = func
+//            override val value: T = null.asInstanceOf[T]
+//
+//            override def iterate(src: dataset[dep]): Option[dat] = (func(src)._2)
+//          }
+//      }
 
   trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with produces[dataset[dependencies]]{
 

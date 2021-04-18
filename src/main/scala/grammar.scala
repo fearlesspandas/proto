@@ -10,6 +10,10 @@ package object grammar {
     def calc[U<:model[A,U]](implicit ttag:TypeTag[U],atag:TypeTag[A]):Option[dataset[A with U]] = {
       src.flatMap(_.calc[U])
     }
+    def calc[U<:axiom[U,T],T](f:dataset[A] => (T,U))(implicit tagU:TypeTag[U]) = {
+      val t = new MmodelInstance[A,T,U](f,null.asInstanceOf[T])
+      src.flatMap(t.iterate(_))
+    }
     def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], atag: TypeTag[A]): Option[U] = src.flatMap(_.fetch[U])
   }
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {

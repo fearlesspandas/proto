@@ -61,6 +61,18 @@ object runner {
       override val value: dataset[ProgramDependencies] = src//.include[Events](currentevents)
     }
 
+//  case class countStore() extends axiom[countStore,Int] {
+//    override def withValue(newVal: Int): countStore = new countStore{
+//      override val value = newVal
+//    }
+//
+//    override val value: Int = 0
+//  }
+//  def countMore(src:dataset[ProgramDependencies]):(Int,countStore) = for{
+//    c <- src.fetch[Counter]
+//    store = new countStore{
+//      override val value: Int = c + 1}
+//  }
   case class Prog2() extends directive[Events with Consumption with Counter,Prog2] {
     override def iterate(src: dataset[Events with Consumption with Counter]): Option[Prog2] = for{
       x <- src.calc[Counter]
@@ -70,8 +82,12 @@ object runner {
 
     override val value: dataset[Events with Consumption with Counter] = data[Events with Consumption with Counter](Map[Any,dataset[_]]().register[Events](new Events))
   }
-  case class Sim() extends axiom[Sim] with produces[String] {
+  case class Sim() extends axiom[Sim,String]{
     override val value: String = "all"
+
+    override def withValue(newVal: String): Sim = new Sim{
+      override val value  = newVal
+    }
   }
   case class Prog() extends directive[ProgramDependencies, Prog] {
     override val value: dataset[ProgramDependencies] = data[ProgramDependencies](startData)
