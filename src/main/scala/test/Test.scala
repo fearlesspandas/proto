@@ -4,7 +4,6 @@ import Grammar.Calc
 import Typical.core._
 import src.main.scala.test.Consumption.Consumption
 import src.main.scala.test.Consumption.Counter
-import src.main.scala.test.EventGenerator.EventGenerator
 import src.main.scala.test.EventHandler._
 import test.SpendEvents.SpendEvents
 
@@ -15,11 +14,13 @@ object runner {
 
   type ProgramDependencies = Events with Consumption with Counter with Sim //with Calc[Events with Counter,Counter]
   val startData = Map[Any, dataset[_]]()
-    .register[Events](new Events)
-    .register[EventGenerator](new EventGenerator)
-    .register[Consumption](new Consumption)
-    .register[Counter](new Counter)
+    .register[Events](new Events(Seq(),""))
+    .register[Consumption](new Consumption(Seq()))
+    .register[Counter](Counter(-1))
     .register[Sim](new Sim)
+    .register[Prog](new Prog)
+    .register[Prog2](new Prog2(Prog().value))
+  case class thingy(a:Int)
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     println("Processing")
@@ -73,14 +74,11 @@ object runner {
 //    store = new countStore{
 //      override val value: Int = c + 1}
 //  }
-  case class Prog2() extends directive[Events with Consumption with Counter,Prog2] {
+  case class Prog2(override val value: dataset[Events with Consumption with Counter]) extends directive[Events with Consumption with Counter,Prog2] {
     override def iterate(src: dataset[Events with Consumption with Counter]): Option[Prog2] = for{
       x <- src.calc[Counter]
-    }yield new Prog2 {
-      override val value = x
-    }
+    }yield Prog2(x)
 
-    override val value: dataset[Events with Consumption with Counter] = data[Events with Consumption with Counter](Map[Any,dataset[_]]().register[Events](new Events))
   }
   case class Sim() extends axiom[Sim,String]{
     override val value: String = "all"

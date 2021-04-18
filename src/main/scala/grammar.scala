@@ -27,43 +27,43 @@ package object grammar {
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): Option[dataset[A with U]] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      val uid = buildId[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
       else {
         val uState = src.context
-          .get(instU.id)
-          .map { case u: U if u != null => u; case _ => instU }
-          .getOrElse(instU)
+          .get(uid)
+          .map { case u: U if u != null => u }
+          .getOrElse(new Error(s"Error while processing calc[${uid}]"))
           .asInstanceOf[U]
         val nextU = uState.iterate(src)
         if (nextU.isDefined) {
           Some(
             src
-              .withContext(src.context.updated(instU.id, nextU.get))
+              .withContext(src.context.updated(uid, nextU.get))
               .asInstanceOf[dataset[A with U]]
           )
-        } else throw new Error(s"Error while processing calc[${instU.id}]")
+        } else throw new Error(s"Error while processing calc[${uid}]")
       }
     }
     def calcT[U <: model[A, U]](
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): dataset[A with U with Calc[A, U]] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      val uid = buildId[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
       else {
         val uState = src.context
-          .get(instU.id)
-          .map { case u: U if u != null => u; case _ => instU }
-          .getOrElse(instU)
+          .get(uid)
+          .map { case u: U if u != null => u }
+          .getOrElse(new Error(s"Error while processing calc[${uid}]"))
           .asInstanceOf[U]
         val nextU = uState.iterate(src)
         if (nextU.isDefined) {
           val c = Calc.apply[A, U](src, nextU.get)
-          c.withContext(src.context.updated(instU.id, nextU.get))
+          c.withContext(src.context.updated(uid, nextU.get))
             .asInstanceOf[Calc[A, U]]
           //.asInstanceOf[dataset[A with U]]
-        } else throw new Error(s"Error while processing calc[${instU.id}]")
+        } else throw new Error(s"Error while processing calc[${uid}]")
       }
     }
     /*
@@ -75,32 +75,36 @@ package object grammar {
           i.e. U can be of type model[A with B, C] where C != U, and calling dataset[A with B with C].map[U] will return
           a dataset[A with B with C] with an updated value for C.
      */
-    def map[U <: model[A, _ >: dataset[A] <: dataset[_]]](
+    def map[U <: model[A , _ >: dataset[A] <: dataset[_]]](
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): Option[dataset[A]] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      val uid = buildId[U]
+      val instU = src.context.get(uid).getOrElse(throw new Error(s"register $uid to use it as a mapping"))
+        .asInstanceOf[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
       else {
         val b = instU.iterate(src)
         if (b.isDefined) {
           Some(src.withContext(src.context.updated(b.get.id, b.get)))
-        } else throw new Error(s"Error while processing map[$instU]")
+        } else throw new Error(s"Error while processing map[$uid]")
       }
     }
     def mapT[U <: model[A, _ >: dataset[A] <: dataset[_]]](
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): dataset[A with TMap[A, U]] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      val uid = buildId[U]
+      val instU = src.context.get(uid).getOrElse(throw new Error(s"register $uid to use it as a mapping"))
+        .asInstanceOf[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
       else {
         val b = instU.iterate(src)
         if (b.isDefined) {
           val m = TMap.apply[A, U](src, instU)
           m.withContext(src.context.updated(b.get.id, b.get))
         }.asInstanceOf[TMap[A, U]]
-        else throw new Error(s"Error while processing map[$instU]")
+        else throw new Error(s"Error while processing map[$uid]")
       }
     }
     /*
@@ -112,21 +116,21 @@ package object grammar {
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): dataset[A with U] = {
-      val instU = build[U]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
+      val uid = buildId[U]
+      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
       else {
         val uState = src.context
-          .get(instU.id)
-          .map { case u: U if u != null => u; case _ => instU }
-          .getOrElse(instU)
+          .get(uid)
+          .map { case u: U if u != null => u;}
+          .getOrElse(throw new Error(s"trouble processing calcFullContext[${uid}]"))
           .asInstanceOf[U]
         val nextModel = uState.iterate(src)
         if (nextModel.isDefined)
           src
-            .withContext(src.context.updated(instU.id, nextModel.get.withContext(src.context)))
+            .withContext(src.context.updated(uid, nextModel.get.withContext(src.context)))
             .asInstanceOf[dataset[A with U]]
         else
-          throw new Error(s"trouble processing calcFullContext[${instU.id}]")
+          throw new Error(s"trouble processing calcFullContext[${uid}]")
       }
     }
     /*
@@ -134,23 +138,24 @@ package object grammar {
       This method closes the gap between the functionality of calc and map, where calcFor can be used to update or expand a dataset
       to have a new value for B where B may or may not be equal to U.
      */
-    def calcFor[U <: model[A, B], B <: dataset[_]](
-      implicit tag: TypeTag[U],
-      tagb: TypeTag[B],
-      atag: TypeTag[A]
-    ): dataset[A with B] = {
-      val instU = build[U]
-      val instB = build[B]
-      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(build[A].id))
-      else {
-        val next = instU.iterate(src)
-        if (next.isDefined)
-          src
-            .withContext(src.context.updated(instB.id, next.get))
-            .asInstanceOf[dataset[A with B]]
-        else throw new Error(s"Error while processing calcFor[${instU.id},${instB.id}]")
-      }
-    }
+//    def calcFor[U <: model[A, B], B <: dataset[_]](
+//      implicit tag: TypeTag[U],
+//      tagb: TypeTag[B],
+//      atag: TypeTag[A]
+//    ): dataset[A with B] = {
+//      val uid = buildId[U]
+//      val instB = build[B]
+//      val bid = buildId[B]
+//      if (src.withContext(Map()) == null) throw new Error(contextErrorStringCalc(buildId[A]))
+//      else {
+//        val next = instU.iterate(src)
+//        if (next.isDefined)
+//          src
+//            .withContext(src.context.updated(bid, next.get))
+//            .asInstanceOf[dataset[A with B]]
+//        else throw new Error(s"Error while processing calcFor[${uid},${bid}]")
+//      }
+//    }
     /*
       Takes arguments U where U is a model with dependency set A and output type U, that has a guarenteed value
       in its output of type dataset[_>:A], and returns D:dataset[A]  where all values for types in D are either updated
@@ -167,24 +172,31 @@ package object grammar {
       implicit taga: TypeTag[A],
       tagu: TypeTag[U]
     ): dataset[A] = {
-      val instU = build[U]
+
+      val uid = buildId[U]
+      val instU = //build[U]
+    src.context.get(uid).getOrElse(throw new Error(s"register $uid to use it in flatMap"))
+      .asInstanceOf[U]
       val nextDataset = instU.iterate(src)
       if (nextDataset.isDefined) {
         src.withContext(src.context ++ nextDataset.get.value.context)
       } else
-        throw new Error(s"Error while processing flatMap[${instU.id}]")
+        throw new Error(s"Error while processing flatMap[${uid}]")
     }
     def flatMapT[U <: model[A, U] with produces[_ >: dataset[A] <: dataset[_]]](
       implicit taga: TypeTag[A],
       tagu: TypeTag[U]
     ): dataset[A with FlatMap[A, U]] = {
-      val instU = build[U]
+      val uid = buildId[U]
+      val instU = //build[U]
+        src.context.get(uid).getOrElse(throw new Error(s"register $uid to use it as a mapping"))
+          .asInstanceOf[U]
       val nextDataset = instU.iterate(src)
       if (nextDataset.isDefined) {
         val f = FlatMap.apply[A, U](src, nextDataset.get)
         f.withContext(src.context ++ nextDataset.get.value.context)
       } else
-        throw new Error(s"Error while processing flatMap[${instU.id}]")
+        throw new Error(s"Error while processing flatMap[${uid}]")
     }
   }
   implicit class Fetcher[A <: dataset[_]](a: dataset[A]) {
@@ -192,26 +204,28 @@ package object grammar {
       implicit ttag: TypeTag[U],
       atag: TypeTag[A]
     ): Option[tpe] =
-      if (a.context.isEmpty) throw new Error(contextErrorStringFetch(build[A].id))
+      if (a.context.isEmpty) throw new Error(contextErrorStringFetch(buildId[A]))
       else
-        a.context.get(build[U].id) match {
+        a.context.get(buildId[U]) match {
           case Some(d: U) => Some(d.value)
           case _          => None
         }
     def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], atag: TypeTag[A]): Option[U] =
-      if (a.context.isEmpty) throw new Error(contextErrorStringFetch(build[A].id))
-      else
-        (a.context.get(build[U].id) match {
+      if (a.context.isEmpty) throw new Error(contextErrorStringFetch(buildId[A]))
+      else {
+        val uid = buildId[U]
+        (a.context.get(uid) match {
           case Some(d: U) if d.withContext(a.context) == null => Some(d.asInstanceOf[U])
           case Some(d: U)                                     => Some(d.withContext(a.context))
           case _                                              => None
         }).asInstanceOf[Option[U]]
+      }
   }
   implicit class ContextBuilder(m: Map[idtype, dataset[_]]) {
     def register[U <: dataset[_]](value: U)(implicit ttag: TypeTag[U]): contexttype =
-      m.updated(build[U].id, value).asInstanceOf[contexttype]
+      m.updated(buildId[U], value).asInstanceOf[contexttype]
     def remove[U <: dataset[_]](implicit ttag: TypeTag[U]): contexttype =
-      m.toSeq.filterNot(p => p._1 == build[U].id).toMap.asInstanceOf[contexttype]
+      m.toSeq.filterNot(p => p._1 == buildId[U]).toMap.asInstanceOf[contexttype]
   }
   implicit class ContextViewer(m: Map[idtype, dataset[_]]) {
     def valueView(): Map[idtype, Any] =
@@ -228,8 +242,7 @@ package object grammar {
   }
   implicit class Includer[A <: dataset[_]](a: dataset[A]) {
     def include[U <: dataset[_]](value: U)(implicit ttag: TypeTag[U]): dataset[A with U] = {
-      val instance = build[U]
-      a.withContext(a.context.updated(instance.id, value))
+      a.withContext(a.context.updated(buildId[U], value))
         .asInstanceOf[dataset[A with U]]
     }
   }

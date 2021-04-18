@@ -16,6 +16,10 @@ package object typeable {
        val rightTag = typeTag[S]
        leftTag.tpe <:< rightTag.tpe
      }
+  def buildId[A:TypeTag]:idtype = typeTag[A].tpe.typeSymbol.toString()
+  //def pastInstance[U:TypeTag](src:dataset[_]):U = src.context.get(buildId[U])
+
+  // can build an instance that from type info alone that does not take arguments
   private[core] def build[A:TypeTag]:A = {
     val m = runtimeMirror(getClass.getClassLoader)
     val classThing = typeOf[A].typeSymbol.asClass
