@@ -18,13 +18,13 @@ object runner {
     .register[Consumption](new Consumption(Seq()))
     .register[Counter](Counter(-1))
     .register[Sim](new Sim)
-    .register[Prog](new Prog)
-    .register[Prog2](new Prog2(Prog().value))
+    .register[Prog](new Prog(null))
+    .register[Prog2](new Prog2(null))
   case class thingy(a:Int)
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     println("Processing")
-    val dat = (new Prog).value
+    val dat = data[ProgramDependencies](startData)
       .flatMap[Prog]
       .flatMap[Prog]
       .flatMap[Prog]
@@ -51,34 +51,23 @@ object runner {
   def prog(src: dataset[ProgramDependencies]): Option[Prog] =
     for {
       newEvents <- src.calcT[Counter].calc[Events]
-    } yield new Prog {
-      override val value: dataset[ProgramDependencies] = newEvents.flatMap[Prog2]
-    }
+    } yield new Prog ( newEvents.flatMap[Prog])
+  def progf(src:dataset[ProgramDependencies]):Option[dataset[ProgramDependencies]] = for {
+    newEvents <- src.calcT[Counter].calc[Events]
+  }yield newEvents
   def prog2(src: dataset[ProgramDependencies]): Option[Prog] =
     for {
       eventgenerator <- src.calc[Counter]
 
-    } yield new Prog {
-      override val value: dataset[ProgramDependencies] = src//.include[Events](currentevents)
-    }
+    } yield new Prog (
+      src//.include[Events](currentevents)
+    )
 
-//  case class countStore() extends axiom[countStore,Int] {
-//    override def withValue(newVal: Int): countStore = new countStore{
-//      override val value = newVal
-//    }
-//
-//    override val value: Int = 0
-//  }
-//  def countMore(src:dataset[ProgramDependencies]):(Int,countStore) = for{
-//    c <- src.fetch[Counter]
-//    store = new countStore{
-//      override val value: Int = c + 1}
-//  }
   case class Prog2(override val value: dataset[Events with Consumption with Counter]) extends directive[Events with Consumption with Counter,Prog2] {
-    override def iterate(src: dataset[Events with Consumption with Counter]): Option[Prog2] = for{
+    override def apply(value: dataset[Events with Consumption with Counter]): Prog2 = Prog2(value)
+    override def next(src: dataset[Events with Consumption with Counter]): Option[dataset[Events with Consumption with Counter]] = for{
       x <- src.calc[Counter]
-    }yield Prog2(x)
-
+    } yield x
   }
   case class Sim() extends axiom[Sim,String]{
     override val value: String = "all"
@@ -87,14 +76,10 @@ object runner {
       override val value  = newVal
     }
   }
-  case class Prog() extends directive[ProgramDependencies, Prog] {
-    override val value: dataset[ProgramDependencies] = data[ProgramDependencies](startData)
-    override def iterate(src: dataset[ProgramDependencies]): Option[Prog] =
-      for {
-        sim <- src.fetch[Sim]
-        simType = sim.value
-        res <- (if (simType == "Empty") prog2(src) else prog(src))
-      } yield res
-
+  case class Prog(override val value: dataset[ProgramDependencies]) extends directive[ProgramDependencies, Prog] {
+    override def apply(value: dataset[ProgramDependencies]): Prog = Prog(value)
+    override def next(src: dataset[ProgramDependencies]): Option[dataset[ProgramDependencies]] = for {
+      res <- progf(src)
+    }yield res
   }
 }

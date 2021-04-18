@@ -64,7 +64,7 @@ package object typeable {
   }
 
   trait axiom[A <: axiom[A,T],T] extends dataset[A] with produces[T]{
-    override final val id = this.getClass.getTypeName
+    override final val id = buildId[A] //this.getClass.getTypeName
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[A] = null
     def withValue(newVal:T):A
@@ -78,7 +78,7 @@ package object typeable {
   }
 
     trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends modelBase[dependencies,output]{
-      override final val id = this.toString.filterNot(c => c == ')' || c == '(')
+      override final val id = buildId[this.type]//this.toString.filterNot(c => c == ')' || c == '(')
     }
   //
       trait Mmodel[dep<:dataset[_],A<:dataset[_],T] extends modelBase[dep,A] with produces[T]{
@@ -104,6 +104,11 @@ package object typeable {
 //      }
 
   trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with produces[dataset[dependencies]]{
+    def next(src:dataset[dependencies]):Option[dataset[dependencies]]
+    def apply(value:dataset[dependencies]):self
+    final override def iterate(src: dataset[dependencies]): Option[self] = for{
+      d <- next(src)
+    } yield apply(d)
 
   }
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
