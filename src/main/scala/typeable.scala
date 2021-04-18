@@ -64,7 +64,7 @@ package object typeable {
   }
 
   trait axiom[A <: axiom[A,T],T] extends dataset[A] with produces[T]{
-    override final val id = buildId[A] //this.getClass.getTypeName
+    override final val id = buildId[this.type] //this.getClass.getTypeName
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[A] = null
     def withValue(newVal:T):A

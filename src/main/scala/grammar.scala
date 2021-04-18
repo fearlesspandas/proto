@@ -2,6 +2,7 @@ package Typical.core
 import Grammar.Calc
 import Grammar.FlatMap
 import Grammar.TMap
+import Typical.core.typeable.model
 
 import scala.reflect.runtime.universe._
 package object grammar {
@@ -15,6 +16,9 @@ package object grammar {
       src.flatMap(t.iterate(_))
     }
     def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], atag: TypeTag[A]): Option[U] = src.flatMap(_.fetch[U])
+    def derive[U <: model[A, U]](implicit utag:TypeTag[U],atag:TypeTag[A]):Option[U] = {
+      src.flatMap(_.derive[U])
+    }
   }
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
     /*
@@ -66,6 +70,11 @@ package object grammar {
         } else throw new Error(s"Error while processing calc[${uid}]")
       }
     }
+
+    def derive[U <: model[A, U]](implicit utag:TypeTag[U],taga:TypeTag[A]):Option[U] = for {
+      res <- src.calc[U].fetch[U]
+    }yield res
+
     /*
       Takes a model U with dependency set A, and returns a dataset[A] with an updated value for the output
       of U. This method is similar to calc except in the following behavior:
@@ -198,6 +207,8 @@ package object grammar {
       } else
         throw new Error(s"Error while processing flatMap[${uid}]")
     }
+
+
   }
   implicit class Fetcher[A <: dataset[_]](a: dataset[A]) {
     def fetchAs[U >: A <: dataset[_] with produces[tpe], tpe](
