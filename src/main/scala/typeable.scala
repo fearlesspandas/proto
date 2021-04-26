@@ -17,8 +17,7 @@ package object typeable {
        leftTag.tpe <:< rightTag.tpe
      }
   def buildId[A:TypeTag]:idtype = typeTag[A].tpe.typeSymbol.toString()
-  //def pastInstance[U:TypeTag](src:dataset[_]):U = src.context.get(buildId[U])
-
+ 
   // can build an instance that from type info alone that does not take arguments
   private[core] def build[A:TypeTag]:A = {
     val m = runtimeMirror(getClass.getClassLoader)
@@ -33,7 +32,12 @@ package object typeable {
     create(a)
   }
 
+  def validateResult[A<:dataset[_]](src:dataset[_])(dat:Option[A])(implicit taga:TypeTag[A]):Option[A] = dat match {
+    case Some(res) => Some(res)
+    case _ =>
+      throw new Error(s"No value for ${buildId[A]} found")
 
+  }
   def contextErrorStringFetch(className:idtype) = s"""
   Using type ${className} for fetch context is not allowed. To allow it either,
   (1) override the 'withContext' method in ${className},and define it to update the context val for ${className} types
@@ -53,68 +57,68 @@ package object typeable {
     val value:T// = null.asInstanceOf[T]
   }
 
+  trait failsWith[+T]{
+    val err:T
+  }
+  trait Id[+A<:dataset[_]]{
+    val dat:A
+  }
   trait InitialType[-T<:dataset[_]]{
     val terminalValue:dataset[_>:T<:dataset[_]] = null
   }
 
   trait dataset[+A <: dataset[_]]{
     val context:contexttype
+    //val errorMap:Map[idtype,Error]
+    val IdRelations:Map[idtype,idtype]
     def withContext(ctx:contexttype):dataset[A]
-    def id:idtype
+    //def withError()
+    val id:idtype
   }
 
-  trait axiom[A <: axiom[A,T],T] extends dataset[A] with produces[T]{
-    override final val id = buildId[this.type] //this.getClass.getTypeName
+  trait axiom[T,A <: axiom[T,A]] extends dataset[A] with produces[T]{
+    override final val id = buildId[this.type]
     override val context: contexttype = Map()
+    //override val errorMap: Map[idtype, Error] = Map()
+    override val IdRelations: Map[idtype, idtype] = Map(id -> id)
     override def withContext(ctx: contexttype): dataset[A] = null
     def withValue(newVal:T):A
   }
 
-  trait modelBase[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {self =>
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {self =>
     def iterate(src:dataset[dependencies]):Option[output]
-    //override final val id = this.toString
+    override final val id = buildId[this.type]
+    //override val errorMap: Map[idtype, Error] = Map()
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[output] = null
   }
 
-    trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends modelBase[dependencies,output]{
-      override final val id = buildId[this.type]//this.toString.filterNot(c => c == ')' || c == '(')
-    }
-  //
-      trait Mmodel[dep<:dataset[_],A<:dataset[_],T] extends modelBase[dep,A] with produces[T]{
-        val f:dataset[dep] => (T,A)
-      }
-    class MmodelInstance[dep<:dataset[_],T,A<:axiom[A,T]](val f:dataset[dep] => (T,A),val value:T)(implicit tagA:TypeTag[A]) extends Mmodel[dep,A,T] {
+  trait FinalModel[-dependencies <: dataset[_], +output <: dataset[_]] extends model[dependencies,output]{
+    override val IdRelations: Map[idtype, idtype] = Map(id -> id)
+  }
 
-      override def id: idtype = build[A].id
+  trait Mmodel[dep<:dataset[_],A<:dataset[_],T] extends model[dep,A] with produces[T]{
+    val f:dataset[dep] => (T,A)
+  }
 
-      override def iterate(src: dataset[dep]): Option[A] = {
-        val next = f(src)
-        Some(next._2.withValue(next._1))
-      }
-    }
-//      def gen[T,dep,dat<:dataset[_]](func:dataset[dep] => (T,dat)):model[dep,dat] with produces[T]= {
-//          new Mmodel[dep,dat,T] {
-//            override final val id = build[dat].id.toString
-//            override val f: dataset[dep] => (T, dat) = func
-//            override val value: T = null.asInstanceOf[T]
-//
-//            override def iterate(src: dataset[dep]): Option[dat] = (func(src)._2)
-//          }
-//      }
 
-  trait directive[dependencies <: dataset[_], +self <:directive[_,self]] extends model[dependencies,self] with produces[dataset[dependencies]]{
+  trait modelUnion[dependencies <: dataset[_], +self <:modelUnion[_,self]] extends FinalModel[dependencies,self] with produces[dataset[dependencies]]{
     def next(src:dataset[dependencies]):Option[dataset[dependencies]]
     def apply(value:dataset[dependencies]):self
     final override def iterate(src: dataset[dependencies]): Option[self] = for{
       d <- next(src)
     } yield apply(d)
-
   }
   case class data[A<:dataset[_]](override val context:contexttype) extends dataset[A] {
-    override def withContext(ctx: contexttype): dataset[A] = data[A](ctx)
+    override def withContext(ctx: contexttype): dataset[A] = {
+     // val currErrors = this.errorMap
+      new data[A](ctx)
+    }
     override val id: idtype = null.asInstanceOf[idtype]
+    override val IdRelations: Map[idtype, idtype] = context.values.foldLeft(Map[idtype,idtype]())((a,c) => a ++ c.IdRelations)
     def dataset = this.asInstanceOf[dataset[A]]
+
+    //override val errorMap: Map[idtype, Error] = context.values.map{case d:failsWith[_] => d.id -> d.err; case d => d.id -> new Error(s"Failed to locate ${d.id}")}.toMap
   }
 
 }

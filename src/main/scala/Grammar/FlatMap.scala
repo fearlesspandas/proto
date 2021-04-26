@@ -8,9 +8,11 @@ class FlatMap[dependencies<:dataset[_],prog<:model[dependencies,prog] with produ
     override val context = ctx
   }
 
-  override def id: idtype = null.asInstanceOf[idtype]
+  override val id: idtype = null.asInstanceOf[idtype]
 
   //override val value: Any = null
+  override val IdRelations: Map[idtype, idtype] = dep.IdRelations
+  //override val errorMap: Map[idtype, Error] = dep.errorMap
 }
 object FlatMap{
   def apply[dependencies<:dataset[_],prog<:model[dependencies,prog] with produces[_>:dataset[dependencies]<:dataset[_]]](dep:dataset[dependencies], f:prog):FlatMap[dependencies,prog] = new FlatMap[dependencies,prog](dep,f)

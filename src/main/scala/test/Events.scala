@@ -15,7 +15,13 @@ package object EventHandler {
 
   type dep = Events with Consumption with Counter
 
-  case class Events(override val value:Seq[Event],formula:String) extends model[Events with Consumption with Counter, Events] with produces[Seq[Event]] {
+  case class Events(
+                     override val value:Seq[Event],
+                    formula:String
+                   ) extends FinalModel[
+                              Events with Consumption with Counter,
+                              Events
+                              ] with produces[Seq[Event]] {
     override def iterate(src: dataset[dep]): Option[Events] =
       for {
         consumptionModel <- src.derive[Consumption]

@@ -8,17 +8,19 @@ import Typical.core.typeable.{contexttype, dataset, idtype, model}
   dependencies of models, which amounts to requiring that , for a dependency Calc[A,U] on type C, if we want to perform dat.calc[C] then dat
   must already have performed operation dat.calc[U] for dat.calc[C] to be valid.
  */
-class Calc[dependencies<:dataset[_],output<:model[dependencies,output]](val dep:dataset[dependencies],out:output) extends dataset[dependencies with output with Calc[dependencies,output]] {
+class Calc[dependencies<:dataset[_],output<:model[dependencies,output]](val dep:dataset[dependencies],out:output) extends dataset[dependencies with output with Calc[_,output]] {
   override val context: contexttype = dep.context
-  override def withContext(ctx: contexttype): dataset[dependencies with output with Calc[dependencies,output]] = new Calc(dep,out) {
+  override def withContext(ctx: contexttype): dataset[dependencies with output with Calc[_,output]] = new Calc(dep,out) {
     override val context = ctx
   }
 
-  override def id: idtype = null.asInstanceOf[idtype]
+  override val id: idtype = null.asInstanceOf[idtype]
 
   //override val value: Any = null
+  override val IdRelations: Map[idtype, idtype] = dep.IdRelations
+  //override val errorMap: Map[idtype, Error] = dep.errorMap
 }
 object Calc{
-  def apply[dependencies<:dataset[_],output<:model[dependencies,output]](dep:dataset[dependencies],out:output):Calc[dependencies,output] = new Calc(dep,out)
+  def apply[dependencies<:dataset[_],output<:model[dependencies,output]](dep:dataset[dependencies],out:output):Calc[dependencies,output] = new Calc[dependencies,output](dep,out)
 }
 

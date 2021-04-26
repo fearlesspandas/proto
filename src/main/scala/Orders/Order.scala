@@ -1,3 +1,5 @@
+import Typical.core.typeable
+import Typical.core.typeable.{Id, axiom, dataset, idtype, model, modelBase, produces}
 //package Typical
 //
 //import Typical.core.Typeable._
@@ -127,4 +129,48 @@
 //
 //    }).set[escrow]
 //  )(_ => HashMap())
+//}
+//
+import Typical.core.grammar._
+//
+//case class order[A,B](a:A,b:B)(implicit val f:((A,B) => idtype) with ((B,A) => idtype)) extends modelBase[order[B,A],order[A,B]] with produces[dataset[order[B,A] with order[A,B]]]{
+//  val op = order[B,A](b,a)
+//  val orderbook = Seq[order[_,_]]
+//  def fills(o:order[B,A]):Boolean = ???
+//  case class orderid(override val dat: order[B, A]) extends Id[order[B,A]]
+//  override def iterate(src: typeable.dataset[order[B, A] with OrderBook]): Option[dataset[order[A, B] with order[B , A]]] = {
+//    val filler = src.fetchId[order[B,A]](orderid(op))
+//    filler match {
+//      case Some(o) => src.includeOp[order[B,A]](None)
+//      case None => src.include[order[A,B]](this)
+//    }
+//  }
+
+//order[thing,stuff].calc[order[stuff,thing]]
+
+
+//case class order[A,B](a:A,b:B)(implicit val f:((A,B) => idtype) with ((B,A) => idtype)) extends modelBase[order[B,A],order[A,B]] with produces[dataset[order[B,A] with order[A,B]]]{
+//  val op = order[B,A](b,a)
+//  val orderbook = Seq[order[_,_]]
+//  def fills(o:order[B,A]):Boolean = ???
+//  case class orderid(override val dat: order[B, A]) extends Id[order[B,A]]
+//  override def iterate(src: typeable.dataset[order[B, A] with OrderBook]): Option[order[A,B]] = {
+//    val filler = src.fetchId[order[B,A]](orderid(op))
+//    filler match {
+//      case Some(o) if fills(o) => None
+//      case None =>Some()
+//    }
+//  }
+//    for{
+//    //fetch orders by unique id
+//    filler <- src.fetchId[order[B,A]](orderid(op))
+//    orderbook <- src.fetch[OrderBook]
+//  }yield {
+////    val neworders = orderbook.value.collect({case o:order[B,A] if fills(o) => o})
+////    src.include[]
+//  }
+//  override val id:idtype = f(a,b)
+//}
+//case class OrderBook(val value:Seq[order[_,_]]) extends axiom[OrderBook,Seq[order[_,_]]] {
+//  override def withValue(newVal: Seq[order[_, _]]): OrderBook = OrderBook(newVal)
 //}
