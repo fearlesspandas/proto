@@ -5,7 +5,6 @@ import Typical.core._
 import src.main.scala.test.Consumption.Consumption
 import src.main.scala.test.Consumption.Counter
 import src.main.scala.test.EventHandler._
-import src.main.scala.test.runner.Monady.{Monady, NoRes, Res}
 
 object runner {
 
@@ -26,10 +25,9 @@ object runner {
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
-    println(run())
     println("Processing")
     val dat1 = data[ProgramDependencies](startData)
-      val dat = dat1.withContext(dat1.context.filterNot(p => p._2.isInstanceOf[Prog]))
+      val dat = dat1.withContext(dat1.context)//.filterNot(p => p._2.isInstanceOf[Prog]))
       .flatCalc[Prog]
       .flatCalc[Prog]
       .flatCalc[Prog]
@@ -93,23 +91,6 @@ object runner {
 
 
 
-
-object Monady{
-  def apply[A<:Monady[_]](a:A):Monady[A] = Res[A](a)
-  sealed trait Monady[+A<:Monady[_]]{
-    //def flatMap[B<:Monady[_]](f:A => Monady[B]):Monady[B] = null//f(this)
-    def iter[dep<:Monady[_]](src:Monady[dep]):Monady[A] = null
-    def flatMap[B<:Monady[_]](src:Monady[B]):Monady[B with A] = null
-    def map[B<:Monady[_]](f:Monady[A] => B):Monady[B] = apply[B](f(this))
-  }
-  case class Res[A<:Monady[_]](value:A) extends Monady[A]
-  case object NoRes extends Monady[Nothing]
-}
-
-  def run() = for {
-     one <- Res(NoRes)
-    two <- Res(NoRes)
-  }yield (two)
 
 
 }
