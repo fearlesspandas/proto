@@ -1,6 +1,5 @@
 package src.main.scala.test
 
-import Grammar.Calc
 import Typical.core._
 import src.main.scala.test.Consumption.Consumption
 import src.main.scala.test.Consumption.Counter
@@ -9,81 +8,41 @@ import src.main.scala.test.EventHandler._
 object runner {
 
   import grammar._
-  import typeable._
+  import dataset._
 
-  type ProgramDependencies = Events with Consumption with Counter with Sim //with andThen[Counter,Counter] //with Calc[Events with Counter,Counter]
+  type ProgramDependencies = Events with Consumption with Counter
   val startData = Map[idtype, dataset[_]]()
     .register[Events](Events(Seq(),""))
     .register[Consumption](new Consumption(Seq()))
     .register[Counter](Counter(-1))
-    .register[Sim](Sim("all"))
-    .register[Prog](Prog(null))
-    .register[Prog2](Prog2(null))
-    //.filterKeys(k => !(k== Counter(-1).id))
-    //.filterNot(p => p._2.isInstanceOf[Counter])
-    //.register(andThen(null))
+    .register[Prog](Prog())
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     println("Processing")
     val dat1 = data[ProgramDependencies](startData)
-      val dat = dat1.withContext(dat1.context)//.filterNot(p => p._2.isInstanceOf[Prog]))
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
-      .flatCalc[Prog]
+      val dat = dat1.withContext(dat1.context)
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
+      .run[Prog]
     val end = System.currentTimeMillis()
-    //(0 to 100).foldLeft((new Prog).value)((a,_) => a.flatMap[Prog])
-    //val res = dat.calc[SpendEvents].fetch[SpendEvents].get.value(1)
-    val formula = dat.fetch[Events].get.formula
-    println(dat.get.context.valueView())
-    println(s"formula:${formula}")
-
+    println(dat.context)
     println(s"time elapsed:${end - start} milliseconds")
   }
 
-  def prog(src: dataset[ProgramDependencies]): Option[Prog] =
-    for {
-      newEvents <- src.calcT[Counter].calc[Events].flatCalc[Prog]
-    } yield  Prog (newEvents)
 
-  def progf(src:dataset[ProgramDependencies]):Option[dataset[ProgramDependencies]] = for {
-    newEvents <- src.calcT[Counter].calcT[Events]
-  }yield newEvents
-
-
-  def prog2(src: dataset[ProgramDependencies]): Option[Prog] =
-    for {
-      _ <- src.calc[Counter]
-    } yield Prog (src)
-
-  type prog2deps = Events with Consumption with Counter
-  case class Prog2(override val value: dataset[prog2deps]) extends modelUnion[prog2deps,Prog2]{
-    override def apply(value: dataset[prog2deps]): Prog2 = Prog2(value)
-    override def next(src: dataset[prog2deps]): Option[dataset[prog2deps]] = for{
-      x <- src.calc[Counter]
-    } yield x
-  }
-  case class Sim(value:String) extends axiom[String,Sim]{
-    override def withValue(newVal: String): Sim = Sim(newVal)
-  }
-  case class RegisterProgError(message:String) extends Error(message)
-  case class Prog(override val value: dataset[ProgramDependencies]) extends modelUnion[ProgramDependencies, Prog] with failsWith [RegisterProgError]{
-    override def apply(value: dataset[ProgramDependencies]): Prog = Prog(value)
-    override def next(src: dataset[ProgramDependencies]): Option[dataset[ProgramDependencies]] = for {
-      res <- progf(src)
-    }yield res
-
-    override val err: RegisterProgError = RegisterProgError(s"No value for ${this.id} found, make sure ${this.id} is registered in the src context")
+  case class Prog() extends model[ProgramDependencies, ProgramDependencies] {
+    override def iterate(src: dataset[ProgramDependencies]): dataset[ProgramDependencies] = src.calc[Counter].calc[Events]
   }
 
 

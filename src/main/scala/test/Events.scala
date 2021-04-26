@@ -1,11 +1,10 @@
 package src.main.scala.test
 
 import Typical.core.grammar
-import Typical.core.typeable
+import Typical.core.dataset._
 import src.main.scala.test.Consumption.{Consumption, Counter}
 package object EventHandler {
   import grammar._
-  import typeable._
 
   trait Event {
     val amount: Double
@@ -16,13 +15,13 @@ package object EventHandler {
   type dep = Events with Consumption with Counter
 
   case class Events(
-                     override val value:Seq[Event],
+                     value:Seq[Event],
                     formula:String
-                   ) extends FinalModel[
+                   ) extends model[
                               Events with Consumption with Counter,
                               Events
-                              ] with produces[Seq[Event]] {
-    override def iterate(src: dataset[dep]): Option[Events] =
+                              ]{
+    override def iterate(src: dataset[dep]): dataset[Events] =
       for {
         consumptionModel <- src.derive[Consumption]
         currEvents <- src.fetch[Events]
