@@ -1,4 +1,5 @@
-Typical is a series Experiments in typesafe data processing using category theory.
+Typical is a series Experiments in typesafe data processing using ideas pulled 
+from category theory, distributed logics/TLA+ , boolean algebras and contextual computing.
 Various examples using Typical can be found in the Test.scala files across the various
 branches of this repo
 
@@ -21,22 +22,26 @@ all levels of data processing, and will do so unless
 it's paradigms are heavily violated. It's primary way
 of achieving this is by forcing the programmer to
 specify transformations on types bound to data in an
-unambiguous manner.
+unambiguous manner. 
 
-If in these transformations, type structure is not respected
-and produces side effects, or becomes ambiguous, Typical will
-not allow the programmer to invoke these transformations
-in downstream processes. In practice what that amounts to
-is, if a calculation/transformation of data has dependencies
-on other data but that data is not guaranteed to be present,
-you will see these missing dependencies in your data transformation
-at compile time, where normally they would appear as a runtime error
-in most existing frameworks.
+The style in which these transformations
+are defined is very similar to how one would define a TLA spec,
+or implement a state monad, where all valid transformations
+defined in typical essentially take the form of a map CTX => next T
+that defines what the next valid state of a type T would be, given
+some valid context.
 
-Most notably this is often an issue when refactoring monumental Spark jobs
+The benefits of enforcing this structure on transformations are as follows:
+
+    1.Transformations are Minimal in their definitions.
+    2.Transformations are highly composable
+    3.Transformations are verifiable at compile time 
+
+
+Most notably point 3 is often an issue when refactoring monumental Spark jobsfor example
 with unclear relationships between columns/dataframes. Typical makes
 it easy to take existing structures that normally have no inherrent notion
-of type at compile time (like a spark column that only gets typechecked at
+of type at compile time (like a spark dataframe column that only gets typechecked at
 run time), and wrap typesafe structure around it with no loss in throughput.
 This is possible because Typical itself is not in any way an engine for
 data processing. You as the programmer still have all the control
@@ -48,25 +53,7 @@ at run time spark will still be doing all of the data processing as it normally
 would if not using Typical.
 
 
-It should be noted that typesafe processing in the real world, has both advantages
-and disadvantages for the lay-programmer, which should be weighed carefully
-
-### Advantages:
-    - near complete reduction of runtime errors
-    - rigorous application structure with no side effects
-    - complete encapsulation of state
-    - extremely modular application structure which detects
-        inconsistencies at compile time
-    - very clean solutions for problems that are obviously recursive in nature
-    - provides a paradigm for distributed processing that's very intuitive to reason about
-### Disadvantages:
-    - Can be difficult to implement a 'loose', overly general api structure
-    - Supporting data injection/realtime data processing is not always obvious
-        when typesafety is enforced
-    - type-safe processing fundamentally requires different design paradigms
-        to arrive at clean solutions
-
-## --------High-Level Overview of Typical data flows----------
+## ----High-Level Overview of Typical data flows----
 Typical is designed to easily build up stateful behavior in a clean
 encapsulated way without side effects. To do this, in general the process
 is to start with some initial dataset 'dat', run a calculation on it to produce new data,
@@ -100,243 +87,122 @@ execute a particular calculation on a given dataset. What that means is, loosely
  ```
 
 Where we're transforming dataset_A into dataset_B through f, where f has a dependency on some data X.
-Suppose then we had a concrete dataset 'dat' which does not contain data for X. Then if somewhere in our
-application we try to invoke f on dat (either within a Typical calculation defining further data transformations,
-or outside of one such as an application entry point), we will get a compile time error.
+Suppose then we had a concrete dataset 'dat' which does not contain data for X. Then if we try to transform dat through f, we will get a compile time error.
 
 
 ## --------Getting Started---------------
 Typical uses 3 main structures to define it's calculations.
-They are: axiom, sim, and rsim. These types in their full functionality
+They are: dataset ,axiom and model. These types in their full functionality
 are imported like so:
 
 ```
-import Typical.core.Typeable._
-import Typical.core.impl._
-import Typical.core.implicits._
+
+import Typical.core._
+import grammar._
+import dataset._
 
 ```
+### Dataset-------
+```dataset[+A<:dataset[_]]``` is the foundational type for all structure defined in typical. ```dataset``` is
+little more than a monadic container, where the bounds on its type parameter amount to the following behavior:
+if ```A:dataset[_]``` and ```B:dataset[_]``` then ```A with B:dataset[_]```. This means intuitively that a
+```dataset[A with B with C]``` can be thought of as representing the lattice created by the base types ```A,B,C```.
 
-Each of these structures are extensions of the more general type, dataset.
-In general every transformation defined in typical takes the form of
-
-```
-dataset[sometype] => dataset[othertype]
-```
 
 ### Axioms----------
-axiom's are simply typed data that requires no processing, or is processed outside of Typical.
+An 
+```
+axiom[+A<:axiom[A]] extends dataset[A]
+```
+ is a typical managed type that requires no processing.
+They're a generally convenient way of throwing any base data into typical to be referenced by other
+types within typical transformations.
 
-Their type paramater structure follows:
 
 ```
-axiom[<datatype>,selfType]
-```
-
-where selfType should always be the class extending axiom.
-
-For exaample, building an axiom that holds a Double is done like so:
-
-```
-class myaxiom extends axiom[Double,myaxiom](1d)
-```
-
-This axiom will always have the value 1 in any calculations that reference it and cannot be changed
-by a transformation.
-
-### Sims------------
-sim's are data that have dependencies on other data via some transformation, but the transformation is
-not recursive (in contrast to rsims' with are recursive). They require you to specify their dependencies
-(a dataset or some combination of datasets) as well as the transformation from the dependency data.
-
-Their type parameter structure is as follows:
-
-```
-sim[<datatype>,dependencyType,selfType]
-```
-
-where selfType should always be the class extending sim, and dependencyType is the combination of the types
-of our data dependencies. The base dependencies can be any axiom,sim,or rsim
-
- For example, if we wanted to build a calculation with our above axiom as a dependency we would do so as follows:
-
-```
-class mySim extends sim[Double,myaxiom,mySim](
-    ((src:dataset[myaxiom]) => {
-        val ax = src.fetch[Double,myaxiom].value
-        ax*1000 + 25
-    }).set[mySim]
-)(0d)
-
-```
-
-The function defined within mySim must be a function of type 
-```
-f:dataset[myaxiom] => Double.
-```
-In general for sim's holding data of type **T**, you would provide a function of type
-```
- dataset[dependencies] => T.
-```
-The datatype for sim can be any type at all and does not have to match the datatype of it's dependencies. For example we could define
-a sim like so
-
-```
-class isEven extends sim[Boolean,myaxiom,isEven](
-    ((src:dataset[myaxiom]) => {
-        val ax = src.fetch[Double,myaxiom].value
-        (ax%2) == 0
-    }).set[isEven]
-)(0d)
-```
-
-Additionally, we can include multiple dependencies in a sim by combining their types using 'with'
-
-```
-class otherAxiom extends axiom[Double,otheraxiom](20d)
+class intData(value:Int) extends axiom[myaxiom]
 ```
 
 ```
-class multiDependencySim extends sim[Double, myaxiom with otheraxiom, multiDependencySim](
-   ((src:dataset[myaxiom with otheraxiom]) => {
-        val myax = src.fetch[Double,myaxiom].value
-        val otherax = src.fetch[Double,otherax].value
-        (myax + otherax)/2
-    }).set[multiDependendencySim]
-   )(0d)
+class stringData(value:String) extends axiom[otheraxiom]
 ```
 
-In this example we've used two pieces of Typical's grammar to build our calculations. The first is the 'fetch' method
-which allows us to retrieve data from state, without transforming it. This is in contrast with the 'calc' method which
-transforms data, discussed below.
-
-We also use the 'set' method on the sim's function argument to convert the function provided, which is just of type 
-
+### Models------------
+In contrast to axioms which require no processing, we also have 
 ```
-dataset[myaxiom with otheraxiom] => Double,
+model[-A<:dataset[_],+B<:dataset[_]] extends dataset[_]
 ```
+which defines transformation from dataset ````A```` to dataset ```B```. Recall that because datasets can be composed through
+the ```with``` keyword, either ```A``` or ```B``` can be of the form ```X with Y with Z``` where ```X,Y,Z :dataset[_]```
 
-to a function of type 
-
+some examples of valid models would then include
 ```
-dataset[myaxiom with otheraxiom] => dataset[multiDependencySim].
-```
-
-### RSims-------------------------------
-rsim's (or recursive sims) are essentially the same as sims, but their transformations are
-recursive in nature, meaning, they have themselves as a dependency.
-
-Their type parameter structure is as follows:
-
-```
-rsim[<datatype>,dependencyType,selfType]
+//a model that defines how to transform/produce itself
+class TimesTwo(value:Int) extends model[intData,TimesTwo]{
+   override def iterate(src:dataset[intData]]):dataset[TimesTwo] = for{
+        currInt <- src.fetch[intData] //fetch is part of the Typical transformation grammar
+    }yield TimesTwo(currInt.value * 2)
+}
 ```
 
-where selfType should always be the class extending sim, and dependencyType is the combination of the types
-of our data dependencies. The base dependencies can be any axiom,sim,or rsim, and must include the selfType
-
 ```
-class multiDependencyRecSim extends rsim[Double, myaxiom with mysim with multiDependencyRecSim, multiDependencyRecSim](
-   ((src:dataset[myaxiom with mysim with multiDependencyRecSim]) => {
-        val myax = src.fetch[Double,myaxiom].value
-        val mysim = src.fetch[Double,otherax].value
-        val recsimval = src.fetch[Double,multiDependencyRecSim].value
-        (myax + otherax)*recsimval
-    }).set[multiDependencyRecSim]
-   )(1d)
+//also a model that produces itself, with multiple dependencies
+class MakeAString(value:String) extends model[intData with stringData,MakeAString]{
+    override def iterate(src:dataset[intData with stringData]):dataset[MakeAString] = for {
+        currInt <- src.fetch[intData] //fetch is part of the Typical transformation grammar
+        currString <- src.fetch[stringData]
+    }yield MakeAString(currString.value + currInt.value.toString)
+}
 ```
 
+```
+//a model with multiple dependencies, that transforms multiple other types/values
+class UpdateMultipleValues extends model[intData with stringData,MakeAString with stringData]{
+    override def iterate(src:dataset[intData with stringData]):dataset[MakeAString with stringData] = for{
+        newctx <- src.calc[MakeAString] //calc is part of the Typical transformation grammar
+        currString <- src.fetch[stringData]
+    }yield newctx.include[stringData](currString.value + "New stuff")
+}
+```
 
 ### Running our calculations through chaining----------------
-Now that we have our data transformations defined, we can provide an entry point and process some data!
+We've already seen two operations from the Typical transformation grammar in our above examples, those
+being ```fetch``` and ```calc```. As demonstrated above, Typical's transformation operators are designed
+to allow you to access/modify/run your Typical structures from a context, while being amenable to standard
+monadic control flows such as for comprehensions. Here we provide a bit more granularity on what some of
+the (most fundamental) operations are doing. 
 
-Recall that we already know of two methods from Typical for data interaction at our disposal; 'calc' and 'fetch'.
-There is also a third method, 'include' which allows the overwrite of state.
+While this may not be a fully exhaustive list of operations defined in the Typical grammar, these are
+pretty fundamental, and overlap with concepts from other frameworks built around the same contextual 
+computing problem space, such as ZIO.
 
-They are used as follows:
-
+#### Operations:
 Suppose that 
  ```
-dat:dataset[<some combination of datasets through 'with'>]
+dat:dataset[CTX<:dataset[_]]
 ```
-#### Operations:
+then we have the following behavior
+
     - fetch
-        dat.fetch[<datatype_A>,A<:dataset[_]]
-            returns dataset A with the context of dat. It's 'value' paramater will
-            be the most recent value for A in dat's context. If dat is not of type dataset[A], i.e. dat does not contain A,
+        dat.fetch[A<:dataset[_]]
+            returns dataset A with the context of dat. If dat is not of type dataset[A], i.e. dat does not contain A,
             you will see a compile time error.
+     -derive
+        dat.derive[A<:model[CTX,A]]
+        returns a dataset[A] calculated using the values from dat, and A's iterate method. Essentially
+        A.iterate(dat). If dat does not have the required dependencies for A, you will see a compile time error
     - calc
-        dat.calc[<datatype_A>,A<:sim[<datatype_a>,_>:dat,A])
-            returns A after it's transformation function is applied
-            on dat. Conceptually can be thought of f_A(dat).fetch[<datatype_a>,A] where f_a is the function provided at A's
-            definition (as a axiom,sim,recsim,etc...). If dat does not have the dependencies to calculate A you will see a compile time error.
-            If used within a transformation, on a src dataset, the state produced by calc is encapsulated in the transformation.
+        dat.calc[A<:model[CTX,A]]
+            returns a dataset[CTX with A]. 
+             If dat does not have the dependencys required for A's transformation
+            you will see a compile time error
+     - run
+        dat.run[A<:model[CTX,_]]
+            returns a dataset[CTX] where all values produced in the output of A's transformation are updated.
+            If dat does not have the required dependencies, or A's output produces a bigger context type than CTX
+            you will see a compile time error.
     - include
-        dat.include[<datatype_A>,A<:dataset[_]](a:datatype_A)
-            returns a dataset with the state of dat, but with
-            the value for type A overridden, if present, or newly included, if not present. If dat was not of type dataset[A]
-            i.e. dat did not contain A, the return type will be of type dataset[A] and include A's specified value.
-            If used within a transformation, on a src dataset, the state produced by calc is encapsulated in the transformation.
+        dat.include[A<:dataset[_]](a:A)
+            returns a dataset[CTX with A] where A's contextual value becomes the passed in value a. If A is already
+            within the CTX lattice then you will still get a dataset[CTX] back with A's value updated.
         
-
-It should be noted that all three methods, 'calc','fetch', and 'include' can be used within the definitions of sims or rsims (like how we retrieved
-our values from state above through fetch). Using any of these within a transformation will not cause side effects, as the
-only value that will ever be changed after a transformation function is called is the one associated with the type the transformation is defined for.
-In this way, we can runsims within sims using various parameters without side effects. Fundamentally choosing when to use which, where, is up to the programmer
-and how they want to structure the flow of their data transformation exactly.
-
-So while both 'fetch' and 'calc' could be chained together like so:
-
-```
-    dat.fetch.fetch.fetch
-    dat.calc.calc.calc
-```
-When we chain fetch multiple times, our result will contain the same values as our original dataset. But when we chain calc multiple times,
-if we have a recursive sim type in our dataset, then we may see it's value change. This is the method by which Typical
-encapsulates state. We begin with an initial dataset with some data, then we chain together calc calls to build up our
-state in a natural way.
-
-So in the context of our above example that would look like the following:
-
-Use the convenient data class to build an initial dataset from our types defined previously
-Start by including any data you want to calc plus it's dependencies
-
-```
-val dat = data[
-        myaxiom with
-        otheraxiom with
-        mySim with
-        multiDependencySim with
-        multiDependencyRecSim with
-        ](
-        baseprovider
-            .register[myaxiom]
-            .register[otheraxiom]
-            .register[multiDependencyRecSim]
-        ) //add any datasets for which we want to include the initial values in the context.
-```        
-
-
-Suppose we want to calculate a value for multiDependencyRecSim. It has multiDependencySim as a dependency which is
-itself a sim type. Because we decided to use 'fetch' instead of 'calc' in multiDependencyRecSim's function definition,
-to retrieve the value for multiDependencySim, we need to calc multiDependencySim first, otherwise when it's fetched in
-multiDependencyRecSim it will just contain it's default starting value.
-If we wanted to avoid this necessity, we could replace the 'fetch' call on multiDependencySim to a 'calc' call, in the
-definition of multiDependencyRecSim. Recall however that 'calc' calls within a transformation are encapsulated and do not
-update state for any type that isn't the one they're defined for. So if multiDependencySim was itself recursive, and had
-values that changed after calls to 'calc', we would not be able to rely on this internal call to update it's global state.
-
-```
-val updatedDataset = dat.calc[Double,multiDependencySim].calc[Double,multiDependencyRecSim]
-val updatedRecSimVal = updatedDataset.value //value of multiDependencyRecSim after transformation
-```
-
-We can then read values from our dataset with updated state with fetch, or we can continue to chain calc calls to further modify state.
-
-
-And that should be all you need start building in Typical. So long as you understand axiom, sim, rsim, dataset,
-calc and fetch you can start building complex systems. Remember type-safe data processing comes with it's own hurtles
-and is not necessarily intuitive in every context. For more complex examples, look across this repo for implementations of sim
-and recSim. Good starting points are any of the Test.scala files across the various branches of this repo, or on master there are
-the KnapSack and Orders package which showcase more complex behavior, such as data input and real time processing.
-

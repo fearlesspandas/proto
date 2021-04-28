@@ -35,6 +35,7 @@ object runner {
       .run[Prog]
       .run[Prog]
       .run[Prog]
+    
     val end = System.currentTimeMillis()
     println(dat.context)
     println(s"time elapsed:${end - start} milliseconds")

@@ -11,13 +11,11 @@ object Consumption {
       for {
         counter <- src.fetch[Counter]
       } yield Consumption(Seq(spendEvent(counter.value * 2, counter.value)))
-
   }
   case class Counter(value:Int) extends model[Counter, Counter]{
     override def iterate(src: dataset[Counter]): dataset[Counter] =
       for {
         counter <- src.fetch[Counter]
       } yield Counter (counter.value + 1)
-
   }
 }
