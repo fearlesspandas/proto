@@ -1,6 +1,5 @@
 package Typical.core;
 
-import Typical.core.Id._
 
 import scala.reflect.runtime.universe._
 import grammar._
@@ -57,8 +56,8 @@ package object dataset {
 //    val value: T // = null.asInstanceOf[T]
 //  }
 
-  trait Id[+A <: dataset[_]] {
-    val dat: A
+  abstract class  Id[+A <: dataset[_]](implicit tag:TypeTag[A]) {
+    val baseId = buildId[A]
   }
 
   trait InitialType[-T <: dataset[_]] {
@@ -66,6 +65,9 @@ package object dataset {
   }
   def apply[A<:dataset[_]](a:A):dataset[A] = a.asInstanceOf[dataset[A]]
 
+//  trait ImplicitModel[A,B] extends model[A,B]{
+//    val baseId =
+//  }
   trait dataset[+A <: dataset[_]] {
     def isEmpty:Boolean
     def flatten[B<:dataset[_]](implicit ev: A<:< dataset[B]):dataset[B] = if (isEmpty) throw this.asInstanceOf[DatasetError[A]].value else this.asInstanceOf[dataset[B]]
@@ -87,7 +89,7 @@ package object dataset {
     def iterate(src: dataset[dependencies]): dataset[output]
 
     //def flatMap[B <: dataset[_]](src:dataset[dependencies]): dataset[B with output]
-    override final val id = if(this.isInstanceOf[model[_,self.type]]) buildId[self.type] else "null"
+    override val id =  buildId[this.type]
 
     override final def isEmpty: Boolean = false
     //override val errorMap: Map[idtype, Error] = Map()

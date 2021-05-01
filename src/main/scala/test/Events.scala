@@ -17,7 +17,7 @@ package object EventHandler {
   case class Events(
                      value:Seq[Event],
                     formula:String
-                   ) extends model[
+                   ) extends Id[Events] with model[
                               Events with Consumption with Counter,
                               Events
                               ]{

@@ -3,7 +3,9 @@ package Typical.core
 import scala.reflect.runtime.universe._
 package object grammar {
   import dataset._
-
+  //implicit class ddddd[A<:dataset[_],B<:dataset[_]](src:dataset[A with B]){
+    def remove[U<:dataset[_],A<:dataset[_]](src:dataset[A with U],u:U): dataset[A] = null
+  //}
   implicit class AAA[B<:axiom[B]](m:dataset[B]){
     def flatMap[C<:dataset[_]](f:B=> dataset[C]):dataset[C] = if (m.isEmpty){
       throw m.asInstanceOf[DatasetError[B]].value
@@ -15,7 +17,7 @@ package object grammar {
     def flatMap[C<:dataset[_]](f:B=> dataset[C]):dataset[C] = if (m.isEmpty){
       throw m.asInstanceOf[DatasetError[B]].value
     } else f(m.asInstanceOf[B])
-
+    //def collect[U](partialFunction: PartialFunction[B,U]):dataset[B] = null
     def map[C<:dataset[C]](f:B => dataset[C]):dataset[C] = if (m.isEmpty) throw m.asInstanceOf[DatasetError[B]].value else f(m.asInstanceOf[B])
   }
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
@@ -32,6 +34,7 @@ package object grammar {
       ustate <- src.asInstanceOf[dataset[A with U]].fetch[U]
       res <- ustate.iterate(src)
     }yield res
+
 
 
     def run[U <: model[A , _ >: dataset[A] <: dataset[_]]](
@@ -54,6 +57,13 @@ package object grammar {
       if (a.isEmpty) throw a.asInstanceOf[DatasetError[A]].value
       else {
         val uid = buildId[U]
+        if (uid.toString().contains("trait")) {
+          a.context.get(uid).flatMap(d => if (d.isInstanceOf[Id[_]]) a.context.get(d.asInstanceOf[Id[U]].baseId) else None) match {
+            case Some(d: U) if d != null && d.isInstanceOf[U] => apply[U](d)
+            case _ => DatasetError[U](new Error(s"No value for ${uid} found for fetch[$uid]"),uid)
+          }
+        }
+        else
         a.context.get(uid) match {
           case Some(d: U) if d != null && d.isInstanceOf[U] => apply[U](d)
           case _ => DatasetError[U](new Error(s"No value for ${uid} found for fetch[$uid]"),uid)
@@ -64,7 +74,11 @@ package object grammar {
       else a.multifetch[U]
   }
   implicit class ContextBuilder(m: Map[idtype, dataset[_]]) {
-    def register[U <: dataset[_]](value: U)(implicit ttag: TypeTag[U]): contexttype = {
+    def register[U <: dataset[_]](value:U)(implicit ttag: TypeTag[U]): contexttype = {
+      val id = buildId[U]
+      m.updated(buildId[U], value).asInstanceOf[contexttype]
+    }
+    def bind[U <: dataset[_],T<:dataset[_] with Id[T]](value:T)(implicit ttag: TypeTag[U]): contexttype = {
       val id = buildId[U]
       m.updated(buildId[U], value).asInstanceOf[contexttype]
     }

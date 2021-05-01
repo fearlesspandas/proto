@@ -1,8 +1,7 @@
 package src.main.scala.test
 
 import Typical.core._
-import src.main.scala.test.Consumption.Consumption
-import src.main.scala.test.Consumption.Counter
+import src.main.scala.test.Consumption.{Consumption, Counter, MyTrait}
 import src.main.scala.test.EventHandler._
 
 object runner {
@@ -12,9 +11,10 @@ object runner {
 
   type ProgramDependencies = Events with Consumption with Counter
   val startData = Map[idtype, dataset[_]]()
-    .register[Events](Events(Seq(),""))
     .register[Consumption](new Consumption(Seq()))
     .register[Counter](Counter(-1))
+    .bind[MyTrait,Events](Events(Seq(),""))
+    .register[Events](Events(Seq(),""))
     .register[Prog](Prog())
 
   def main(args: Array[String]): Unit = {
@@ -35,7 +35,8 @@ object runner {
       .run[Prog]
       .run[Prog]
       .run[Prog]
-    
+        //val dat2 = remove(dat,Events)
+    println(buildId[MyTrait])
     val end = System.currentTimeMillis()
     println(dat.context)
     println(s"time elapsed:${end - start} milliseconds")
