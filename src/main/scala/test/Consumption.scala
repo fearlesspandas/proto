@@ -4,18 +4,18 @@ import EventHandler._
 import Typical.core.dataset._
 import src.main.scala.test.Consumption.Consumption
 import src.main.scala.test.runner.ProgramDependencies
+import test.SpendEvents.SpendEvents
 object Consumption {
-  type MyTrait = model[_,Consumption]
-  type progdep = ProgramDependencies
-  type dep = model[
-    Events with Consumption with Counter,
-    Events
-  ] with Counter  with MyTrait
-  case class Consumption(value:Seq[Event]) extends model[dep, Consumption]{
+  type EventDeps = EventStore with Counter
+  //type implicitSpendEvents = implicitModel[Events,SpendEvents]
+  type ImplicitEvents = EventStore//EventDeps model Events
+  type dep = EventDeps with ImplicitEvents
+  type ConsumptionType = dep model Consumption
+  case class Consumption(val value:Seq[Event]) extends ConsumptionType {
     override def iterate(src: dataset[dep]): dataset[Consumption] =
       for {
         counter <- src.fetch[Counter]
-        thing <- src.fetch[MyTrait]
+        thing <- src.fetch[ImplicitEvents]
       } yield {
         println(thing.toString)
         Consumption(Seq(spendEvent(counter.value * 2, counter.value)))

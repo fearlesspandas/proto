@@ -12,20 +12,21 @@ package object EventHandler {
 
   case class spendEvent(amount: Double, Year: Int) extends Event
 
-  type dep = Events with Consumption with Counter
+  type dep = EventStore  with Counter
 
-  case class Events(
-                     value:Seq[Event],
-                    formula:String
-                   ) extends Id[Events] with model[
-                              Events with Consumption with Counter,
-                              Events
-                              ]{
+  trait EventStore extends model[EventStore with Counter,Events]{
+    val value:Seq[Event]
+    val formula:String
+  }
+   case class Events(
+                     val value:Seq[Event],
+                     val formula:String
+                   ) extends EventStore {
     override def iterate(src: dataset[dep]): dataset[Events] =
       for {
         consumptionModel <- src.derive[Consumption]
-        currEvents <- src.fetch[Events]
-      } yield Events(
+        currEvents <- src.fetch[EventStore]
+      } yield new Events(
           consumptionModel.value ++ currEvents.value,
           currEvents.formula + consumptionModel.value
             .map(e => s" + ${e.amount}")
