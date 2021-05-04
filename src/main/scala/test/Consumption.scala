@@ -7,8 +7,7 @@ import src.main.scala.test.runner.ProgramDependencies
 import test.SpendEvents.SpendEvents
 object Consumption {
   type EventDeps = EventStore with Counter
-  //type implicitSpendEvents = implicitModel[Events,SpendEvents]
-  type ImplicitEvents = EventStore//EventDeps model Events
+  type ImplicitEvents = EventStore
   type dep = EventDeps with ImplicitEvents
   type ConsumptionType = dep model Consumption
   case class Consumption(val value:Seq[Event]) extends ConsumptionType {

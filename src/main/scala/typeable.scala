@@ -17,7 +17,9 @@ package object dataset {
   def buildId[A: TypeTag]: idtype = typeTag[A].tpe.typeSymbol.toString()
 
   def buildIdLor[A: TypeTag](rel:Map[idtype,idtype], next:Option[idtype] = None,curr:Option[idtype] = None): idtype = next match {
-    case Some(p) => buildIdLor[A](rel,rel.get(p),Some(p))
+    case _ if rel.isEmpty => buildId[A]
+    case Some(n) if curr.exists(_ == n) => n
+    case Some(n) => buildIdLor[A](rel,rel.get(n),Some(n))
     case None => curr match {
       case Some(c) => c
       case None =>
@@ -38,12 +40,26 @@ package object dataset {
     val c2 = cm.reflectConstructor(c1)
     c2.apply().asInstanceOf[A]
   }
-
+  def idLess(a:idtype,b:idtype):Boolean = {
+    val baseA = removeSpecialChars(a.toString.split("with")).toSet
+    val baseB = removeSpecialChars(b.toString.split("with")).toSet
+    //val diff = baseB.diff(baseA)
+    baseA.subsetOf(baseB)
+  }
+  def idcomb(a:idtype,b:idtype):idtype = a.toString + b.toString
+  def removeSpecialChars(st:Seq[String]):Seq[String] = st.map(
+    _
+      .replaceAll(".package","")
+      .replaceAll("<","")
+      .replaceAll(">","")
+      .replaceAll(" ","")
+  )
   def buildInferred[A](implicit create: (TypeTag[A]) => A, a: TypeTag[A]): A = {
     create(a)
   }
 
 
+  def init():contexttype = Map()
 
   def contextErrorStringFetch(className: idtype) =
     s"""
@@ -64,10 +80,6 @@ package object dataset {
   type idtype = Any
 
 
-//  trait produces[+T] {
-//    val value: T // = null.asInstanceOf[T]
-//  }
-
   abstract class  Id[+A <: dataset[_]](implicit tag:TypeTag[A]) {
     val baseId = buildId[A]
   }
@@ -80,80 +92,65 @@ package object dataset {
 
   trait dataset[+A <: dataset[_]] {
     def isEmpty:Boolean
-    def flatten[B<:dataset[_]](implicit ev: A<:< dataset[B]):dataset[B] = if (isEmpty) throw this.asInstanceOf[DatasetError[A]].value else this.asInstanceOf[dataset[B]]
+    def fold[B<:dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(f: dataset[A] => dataset[B]): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
     val context: contexttype
     def withContext(ctx: contexttype): dataset[A]
-    val id: idtype
     val relations:Map[idtype,idtype]
     def withRelations(rel:Map[idtype,idtype]):dataset[A]
+   //def getId[B](implicit ev:A<:<B, taga:TypeTag[B]):idtype = buildId[B]
+    //val id = () =>  getId[this.type]
   }
 
   trait axiom[ A <: axiom[A]] extends dataset[A] {
-    override final val id = buildId[this.type]
     override val context: contexttype = Map()
     override final def isEmpty = false
     override def withContext(ctx: contexttype): dataset[A] = null
-    override val relations = Map(this.id -> this.id)
+    override val relations = Map()
     override def withRelations(rel:Map[idtype,idtype]):dataset[A] = null
   }
 
-  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] {
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {
     self =>
     def iterate(src: dataset[dependencies]): dataset[output]
-    override val id =  buildId[this.type]
     override final def isEmpty: Boolean = false
     override val context: contexttype = Map()
     override def withContext(ctx: contexttype): dataset[output] = null
-    override val relations = Map(this.id -> this.id)
+    override val relations = Map()
     override def withRelations(rel:Map[idtype,idtype]):dataset[output] = null
   }
-  def removeSpecialChars(st:Seq[String]):Seq[String] = st.map(
-    _
-      .replaceAll(".package","")
-      .replaceAll("<","")
-      .replaceAll(">","")
-      .replaceAll(" ","")
-  )
-  def idLess(a:idtype,b:idtype):Boolean = {
-    val baseA = removeSpecialChars(a.toString.split("with")).toSet
-    val baseB = removeSpecialChars(b.toString.split("with")).toSet
-   //val diff = baseB.diff(baseA)
-    baseA.subsetOf(baseB)
-  }
-  def idcomb(a:idtype,b:idtype):idtype = a.toString + b.toString
+
+
   abstract class implicitModel[-dep<:dataset[_],+out<:dataset[_]](implicit tagdep:TypeTag[dep],tagout:TypeTag[out]) extends model[dep,out]{
     val id_l = buildId[dep]
     val id_r = buildId[out]
     val combid = idcomb(id_l,id_r)
-
   }
 
 
-  case class DatasetError[+A<:dataset[_]](value:Error,par_id:idtype) extends dataset[A] {
+  case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
     override val context:contexttype = Map()
     override final def isEmpty: Boolean = true
-    override def withContext(ctx: contexttype): dataset[A ] = new DatasetError[A](this.value,this.par_id){
+    override def withContext(ctx: contexttype): dataset[A ] = new DatasetError[A](this.value:_*){
       override val context = ctx
     }
-    //override final val get:A = throw new Error("")
-    override val id: idtype = par_id
-    override val relations: Map[idtype, idtype] = Map(this.id -> this.id)
-
-    override def withRelations(rel: Map[idtype, idtype]): dataset[A] = new  DatasetError[A](this.value,this.par_id){
+    def append(newvalue:Error *):DatasetError[A] = new DatasetError[A](this.value ++ newvalue :_*  )
+    override val relations: Map[idtype, idtype] = Map()
+    override def withRelations(rel: Map[idtype, idtype]): dataset[A] = new  DatasetError[A](this.value:_*){
       override val relations = rel
     }
   }
 
-
   case class data[A <: dataset[_]](override val context: contexttype = Map(),relations:Map[idtype,idtype] = Map()) extends dataset[A] {
-    override def withContext(ctx: contexttype): dataset[A] = new data[A](ctx,this.relations)
-
-    //override final val get:A = throw new Error("")
+    override def withContext(ctx: contexttype): dataset[A] = {
+      val relationsHasErr = ctx.values.exists(_.isInstanceOf[DatasetError[_]])
+      if(relationsHasErr) {
+        DatasetError[A]()
+      }
+      else
+        new data[A](ctx,this.relations)
+    }
     override final def isEmpty: Boolean = false
-    override val id: idtype = null.asInstanceOf[idtype]
     def dataset = this.asInstanceOf[dataset[A]]
-
-
     override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
 
