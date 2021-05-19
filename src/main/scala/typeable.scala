@@ -1,9 +1,12 @@
 package Typical.core;
 
 
-import scala.reflect.runtime.universe._
+import scala.reflect.runtime.universe.{TypeTag,typeTag,runtimeMirror,typeOf,termNames}
 import grammar._
 package object dataset {
+  type contexttype = Map[idtype, dataset[_]]
+
+  type idtype = Any
 
 
   def getTypeTag[T: TypeTag](obj: T) = typeTag[T]
@@ -28,15 +31,12 @@ package object dataset {
     }
   }
 
-  def buildIdString(st:idtype) = Class.forName(st.toString).getTypeName
-  //def buildIds[A<:implicitModel[dep,out],dep<:dataset[_],out<:dataset[_]](implicit taga:TypeTag[A],tagdep:TypeTag[dep],tagout:TypeTag[out]):idtype = idcomb(buildId[dep],buildId[out])
   // can build an instance that from type info alone that does not take arguments
   def build[A: TypeTag]: A = {
     val m = runtimeMirror(getClass.getClassLoader)
     val classThing = typeOf[A].typeSymbol.asClass
     val cm = m.reflectClass(classThing)
     val c1 = typeOf[A].decl(termNames.CONSTRUCTOR).asMethod
-    //val test = c1.info.resultType.paramLists
     val c2 = cm.reflectConstructor(c1)
     c2.apply().asInstanceOf[A]
   }
@@ -59,26 +59,6 @@ package object dataset {
   }
 
 
-  def init():contexttype = Map()
-
-  def contextErrorStringFetch(className: idtype) =
-    s"""
-  Using type ${className} for fetch context is not allowed. To allow it either,
-  (1) override the 'withContext' method in ${className},and define it to update the context val for ${className} types
-   or
-  (2) override it's context val to be a static value.
-  """
-
-  def contextErrorStringCalc(className: idtype) =
-    s"""
-  Using type ${className} for calc context is not allowed.
-   To allow it override the 'withContext' method in ${className},
-   and define it to update the context val for the ${className} type
-  """
-
-  type contexttype = Map[idtype, dataset[_]]
-  type idtype = Any
-
 
   abstract class  Id[+A <: dataset[_]](implicit tag:TypeTag[A]) {
     val baseId = buildId[A]
@@ -91,14 +71,12 @@ package object dataset {
 
 
   trait dataset[+A <: dataset[_]] {
+    val context: contexttype
+    val relations:Map[idtype,idtype]
     def isEmpty:Boolean
     def fold[B<:dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(f: dataset[A] => dataset[B]): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
-    val context: contexttype
     def withContext(ctx: contexttype): dataset[A]
-    val relations:Map[idtype,idtype]
     def withRelations(rel:Map[idtype,idtype]):dataset[A]
-   //def getId[B](implicit ev:A<:<B, taga:TypeTag[B]):idtype = buildId[B]
-    //val id = () =>  getId[this.type]
   }
 
   trait axiom[ A <: axiom[A]] extends dataset[A] {
@@ -106,35 +84,34 @@ package object dataset {
     override final def isEmpty = false
     override def withContext(ctx: contexttype): dataset[A] = null
     override val relations = Map()
-    override def withRelations(rel:Map[idtype,idtype]):dataset[A] = null
+    override def withRelations(rel:Map[idtype,idtype]):dataset[A] = DatasetError[A](new Error("No withContext method available"))
   }
 
-  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output]  {
+  trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
     self =>
-    def iterate(src: dataset[dependencies]): dataset[output]
     override final def isEmpty: Boolean = false
     override val context: contexttype = Map()
-    override def withContext(ctx: contexttype): dataset[output] = null
+    override def withContext(ctx: contexttype): dataset[output] = DatasetError[output](new Error("No withContext method available"))
     override val relations = Map()
     override def withRelations(rel:Map[idtype,idtype]):dataset[output] = null
   }
 
 
-  abstract class implicitModel[-dep<:dataset[_],+out<:dataset[_]](implicit tagdep:TypeTag[dep],tagout:TypeTag[out]) extends model[dep,out]{
-    val id_l = buildId[dep]
-    val id_r = buildId[out]
-    val combid = idcomb(id_l,id_r)
-  }
+//  abstract class implicitModel[-dep<:dataset[_],+out<:dataset[_]](implicit tagdep:TypeTag[dep],tagout:TypeTag[out]) extends model[dep,out]{
+//    val id_l = buildId[dep]
+//    val id_r = buildId[out]
+//    val combid = idcomb(id_l,id_r)
+//  }
 
 
   case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
     override val context:contexttype = Map()
+    override val relations: Map[idtype, idtype] = Map()
     override final def isEmpty: Boolean = true
     override def withContext(ctx: contexttype): dataset[A ] = new DatasetError[A](this.value:_*){
       override val context = ctx
     }
     def append(newvalue:Error *):DatasetError[A] = new DatasetError[A](this.value ++ newvalue :_*  )
-    override val relations: Map[idtype, idtype] = Map()
     override def withRelations(rel: Map[idtype, idtype]): dataset[A] = new  DatasetError[A](this.value:_*){
       override val relations = rel
     }
@@ -150,7 +127,6 @@ package object dataset {
         new data[A](ctx,this.relations)
     }
     override final def isEmpty: Boolean = false
-    def dataset = this.asInstanceOf[dataset[A]]
     override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
 

@@ -22,7 +22,7 @@ package object EventHandler {
                      val value:Seq[Event],
                      val formula:String
                    ) extends EventStore {
-    override def iterate(src: dataset[dep]): dataset[Events] =
+    override def apply(src: dataset[dep]): dataset[Events] =
       for {
         consumptionModel <- src.derive[Consumption]
         currEvents <- src.fetch[EventStore]
