@@ -17,11 +17,8 @@ object Consumption {
         Consumption(Seq(spendEvent(counter.value * 2, counter.value)))
       }
   }
-  case class Counter(value:Int) extends model[Counter, Counter]{
-    override def apply(src: dataset[Counter]): dataset[Counter] =
-      for {
-        counter <- src.fetch[Counter]
-      } yield Counter (counter.value + 1)
+  case class Counter(value:Int) extends index[Counter]{
+    override def apply(): dataset[Counter] = Counter (value + 1)
   }
 }
 

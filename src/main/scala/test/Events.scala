@@ -25,10 +25,10 @@ package object EventHandler {
     override def apply(src: dataset[dep]): dataset[Events] =
       for {
         consumptionModel <- src.derive[Consumption]
-        currEvents <- src.fetch[EventStore]
+        //currEvents <- src.fetch[EventStore]
       } yield new Events(
-          consumptionModel.value ++ currEvents.value,
-          currEvents.formula + consumptionModel.value
+          consumptionModel.value ++ value,
+          formula + consumptionModel.value
             .map(e => s" + ${e.amount}")
             .foldLeft("")(_ + _)
         )

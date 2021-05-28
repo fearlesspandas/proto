@@ -96,6 +96,10 @@ package object dataset {
     override def withRelations(rel:Map[idtype,idtype]):dataset[output] = null
   }
 
+  trait index[ self <: dataset[_]] extends model[self,self]{
+    def apply():dataset[self]
+    override def apply(src:dataset[self]) = apply()
+  }
 
 //  abstract class implicitModel[-dep<:dataset[_],+out<:dataset[_]](implicit tagdep:TypeTag[dep],tagout:TypeTag[out]) extends model[dep,out]{
 //    val id_l = buildId[dep]
