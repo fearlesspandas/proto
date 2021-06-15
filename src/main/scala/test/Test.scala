@@ -21,7 +21,14 @@ object runner {
       .include(Prog())
       .include[EventStore,Events](starterEvents)
       .include[CycleState,One](One())
-    runProg(dat)
+      .include(Compound(13000))
+      .include(Rand(0))
+      .calc[Compound]
+      .calc[Compound]
+      .calc[Compound]
+      .calc[Compound]
+      .calc[Compound]
+    //runProg(dat)
 //      .calc[CycleState]
 //      .calc[CycleState]
 //      .calc[CycleState]
@@ -39,10 +46,10 @@ object runner {
 //      .run[Prog]
 //      .run[Prog]
 //      .run[Prog]
-//      .run[Prog]
+//      .run[Prog],rand2.value
     val end = System.currentTimeMillis()
     println(dat.fetch[CycleState])
-    println(dat.fetch[Events])
+    println(dat.fetch[Compound].asInstanceOf[Compound].value)
     println(s"time elapsed:${end - start} milliseconds")
   }
 
@@ -59,7 +66,17 @@ object runner {
 
   }
 
-
+  case class Rand(value:Double) extends index[Rand] with produces[Double]{
+    override def apply(): dataset[Rand] = Rand(scala.util.Random.nextDouble())
+  }
+  case class Compound(value:Double) extends model[Compound with Rand,Compound]{
+    override def apply(src: dataset[Compound with Rand]): dataset[Compound] = for{
+      rand <- src.derive[Rand]
+    }yield{
+      println(rand.value)
+      Compound(value* 1.7 * 10 * rand)
+    }
+  }
 
 trait CycleState extends model[CycleState,CycleState]
 

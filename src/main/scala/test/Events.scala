@@ -19,15 +19,15 @@ package object EventHandler {
     val formula:String
   }
    case class Events(
-                     val value:Seq[Event],
-                     val formula:String
+                      value:Seq[Event],
+                      formula:String
                    ) extends EventStore {
     override def apply(src: dataset[dep]): dataset[Events] =
       for {
         consumptionModel <- src.derive[Consumption]
-        //currEvents <- src.fetch[EventStore]
-      } yield new Events(
-          consumptionModel.value ++ value,
+        thing = src.calc[Consumption]
+      } yield Events(
+          consumptionModel ++ value,
           formula + consumptionModel.value
             .map(e => s" + ${e.amount}")
             .foldLeft("")(_ + _)

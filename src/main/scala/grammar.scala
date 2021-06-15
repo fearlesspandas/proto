@@ -6,26 +6,8 @@ package object grammar {
 
   import dataset._
 
-  //implicit class ddddd[A<:dataset[_],B<:dataset[_]](src:dataset[A with B]){
+  implicit def evaluate[T](t:produces[T]):T = t.value
   def remove[U <: dataset[_], A <: dataset[_]](src: dataset[A with U], u: U): dataset[A] = null
-
-  //}
-
-
-//  implicit class ImplicitGram[A <: dataset[implicitModel[A, out]], out <: model[A, out]](a: dataset[A])(implicit tagout: TypeTag[out]) {
-//    def implicitFetch2[U <: model[A, out]](implicit tagdep: TypeTag[U], tagA: TypeTag[A]): dataset[out] = {
-//      val idl = buildId[A]
-//      val idr = buildId[out]
-//      val res = a.context.values.filter({
-//        case u: implicitModel[dep, out] if idLess(u.id_l, idl) && u.id_r == idr => true;
-//        case _ => false
-//      }).headOption match {
-//        case Some(o: model[_, _]) => o.asInstanceOf[model[U, out]]
-//        case _ => DatasetError[out](new Error(s"no implicit value found for $idl -> $idr"))
-//      }
-//      res
-//    }
-//  }
 
   implicit class AAA[B <: axiom[B]](m: dataset[B]) {
     def flatMap[C <: dataset[_]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
@@ -37,8 +19,6 @@ package object grammar {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
       DatasetError[C](new Error(s"error while processing map")).append(lasterr: _*)
     } else f(m.asInstanceOf[B])
-
-
   }
 
   implicit class FFFF[B <: model[_ <: dataset[_], B]](m: dataset[B])(implicit tagb: TypeTag[B]) {
@@ -99,6 +79,12 @@ package object grammar {
     def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
       src.multifetch[U]
 
+    /*
+      This method exists primarily to allow the generalization of a good fetch method, while also not restricting
+      the fetched type U to be of type dataset[U]. This is of particular interest in the run method, where we
+      are usually going to need to fetch a stateful constructor for of the form dataset[A with B with C] => dataset[A with B with C]
+      as one example. The non-private 'fetch' method in turn just restricts its type U to be of form dataset[U],
+     */
     private[grammar] def multifetch[U >: A <: dataset[_]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = {
       if(src.isEmpty) DatasetError[U](new Error(s"Error while performing fetch[${buildId[U]}]")).append(src.asInstanceOf[DatasetError[A]].value:_*)
       else {

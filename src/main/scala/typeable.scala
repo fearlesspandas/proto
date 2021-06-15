@@ -70,6 +70,10 @@ package object dataset {
   def apply[A<:dataset[_]](a:A):dataset[A] = a.asInstanceOf[dataset[A]]
 
 
+  trait produces[+T]{
+   val value:T
+  }
+
   trait dataset[+A <: dataset[_]] {
     val context: contexttype
     val relations:Map[idtype,idtype]
@@ -98,7 +102,7 @@ package object dataset {
 
   trait index[ self <: dataset[_]] extends model[self,self]{
     def apply():dataset[self]
-    override def apply(src:dataset[self]) = apply()
+    override def apply(src:dataset[self]):dataset[self] = apply()
   }
 
 //  abstract class implicitModel[-dep<:dataset[_],+out<:dataset[_]](implicit tagdep:TypeTag[dep],tagout:TypeTag[out]) extends model[dep,out]{
