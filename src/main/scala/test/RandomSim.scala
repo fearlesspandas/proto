@@ -33,7 +33,7 @@ object RandomSim{
   def run(src:dataset[RandomSim with Counter],eps:Double):dataset[RandomSim] = try for{
     r <- src.fetch[RandomSim]
   }yield {
-    if (r.value <= eps) src else run(src.calc[Counter].calc[RandomSim],eps)
+    if (r.value <= eps) src else run(src.iter[Counter].iter[RandomSim],eps)
   }catch {
     case e:Exception =>
       println("An Error occured")

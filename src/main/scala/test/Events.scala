@@ -14,7 +14,7 @@ package object EventHandler {
 
   type dep = EventStore  with Counter
 
-  trait EventStore extends model[EventStore with Counter,Events]{
+  trait EventStore extends model[EventStore with Counter,EventStore]{
     val value:Seq[Event]
     val formula:String
   }
@@ -22,10 +22,10 @@ package object EventHandler {
                       value:Seq[Event],
                       formula:String
                    ) extends EventStore {
-    override def apply(src: dataset[dep]): dataset[Events] =
+    override def apply(src: dataset[dep]): dataset[EventStore] =
       for {
         consumptionModel <- src.derive[Consumption]
-        thing = src.calc[Consumption]
+        //thing = src.calc[Consumption]
       } yield Events(
           consumptionModel ++ value,
           formula + consumptionModel.value

@@ -5,15 +5,13 @@ import Typical.core.dataset._
 object Consumption {
   type EventDeps = EventStore with Counter
   type ImplicitEvents = EventStore
-  type dep = EventDeps with ImplicitEvents
+  type dep = Counter//EventDeps with ImplicitEvents
   type ConsumptionType = dep model Consumption
   case class Consumption(val value:Seq[Event]) extends ConsumptionType with produces[Seq[Event]]{
     override def apply(src: dataset[dep]): dataset[Consumption] =
       for {
         counter <- src.fetch[Counter]
-        thing <- src.fetch[ImplicitEvents]
       } yield {
-        println(thing.value)
         Consumption(Seq(spendEvent(counter * 2, counter)))
       }
   }

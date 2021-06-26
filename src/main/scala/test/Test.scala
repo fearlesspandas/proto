@@ -3,6 +3,8 @@ package src.main.scala.test
 import Typical.core._
 import src.main.scala.test.Consumption.{Consumption, Counter, EventDeps}
 import src.main.scala.test.EventHandler._
+import test.Account._
+import test.AccountRates
 import test.SpendEvents.SpendEvents
 
 object runner {
@@ -11,7 +13,7 @@ object runner {
   import dataset._
   val starterConsumption:Consumption = new Consumption(Seq())
   val starterEvents :Events = Events(Seq(),"")
-  type ProgramDependencies = Events with Consumption with Counter
+  type ProgramDependencies = EventStore with Consumption with Counter
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     println("Processing")
@@ -23,18 +25,19 @@ object runner {
       .include[CycleState,One](One())
       .include(Compound(13000))
       .include(Rand(0))
-      .calc[Compound]
-      .calc[Compound]
-      .calc[Compound]
-      .calc[Compound]
-      .calc[Compound]
-    //runProg(dat)
-//      .calc[CycleState]
-//      .calc[CycleState]
-//      .calc[CycleState]
-//      .run[One]
-//      .calc[CycleState]
-//      .run[Prog]
+      .include(new Accounts(Seq(CheckingAccount(1,100))))
+      .include(AccountRates())
+      .include(GrowAccounts())
+      .iter[Compound]
+      .iter[Compound]
+      .iter[Compound]
+      .iter[Compound]
+      .iter[Compound]
+      .growAccounts
+      .growAccounts
+   // dat.transfer()
+//
+      .run[Prog]
 //      .run[Prog]
 //      .run[Prog]
 //      .run[Prog]
@@ -48,8 +51,11 @@ object runner {
 //      .run[Prog]
 //      .run[Prog],rand2.value
     val end = System.currentTimeMillis()
-    println(dat.fetch[CycleState])
-    println(dat.fetch[Compound].asInstanceOf[Compound].value)
+    println(dat.getAccountModel(1).value)
+   // println(dat.fetch[CycleState])
+ //   println(dat.fetch[Compound].asInstanceOf[Compound].value)
+//    println(dat.fetch[Accounts].asInstanceOf[Accounts].value)
+//    println(dat.spend(CheckingAccount(2,0),10).fetch[Accounts].asInstanceOf[Accounts].value)
     println(s"time elapsed:${end - start} milliseconds")
   }
 
@@ -61,7 +67,7 @@ object runner {
 
   case class Prog() extends model[ProgramDependencies, ProgramDependencies] {
     override def apply(src: dataset[ProgramDependencies]): dataset[ProgramDependencies] ={
-      src.calc[Counter].calc[Events]
+      src.iter[Counter].iter[EventStore]
     }
 
   }

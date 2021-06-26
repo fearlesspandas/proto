@@ -5,7 +5,6 @@ import scala.reflect.runtime.universe._
 package object grammar {
 
   import dataset._
-
   implicit def evaluate[T](t:produces[T]):T = t.value
   def remove[U <: dataset[_], A <: dataset[_]](src: dataset[A with U], u: U): dataset[A] = null
 
@@ -15,7 +14,7 @@ package object grammar {
       DatasetError[C](new Error(s"error while processing FlatMap")).append(lasterr: _*)
     } else f(m.asInstanceOf[B])
 
-    def map[C <: dataset[C]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
+    def map[C <: dataset[_]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
       DatasetError[C](new Error(s"error while processing map")).append(lasterr: _*)
     } else f(m.asInstanceOf[B])
@@ -27,16 +26,20 @@ package object grammar {
       DatasetError[C](new Error(s"error while processing flatMap ${buildId[C]}")).append(lasterr: _*)
     } else f(m.asInstanceOf[B])
 
-    def map[C <: dataset[C]](f: B => dataset[C])(implicit tagc: TypeTag[C]): dataset[C] = if (m.isEmpty) {
+    def map[C <: dataset[_]](f: B => dataset[C])(implicit tagc: TypeTag[C]): dataset[C] = if (m.isEmpty) {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
       DatasetError[C](new Error(s"error while processing map ${buildId[C]}")).append(lasterr: _*)
     } else f(m.asInstanceOf[B])
 
   }
-
+implicit class toOption[A<:dataset[A]](src:dataset[A]){
+  def toOption:Option[A] = Some(src.asInstanceOf[A])
+}
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
 
-    def calc[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
+
+
+    def iter[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
                                 implicit ttag: TypeTag[U],
                                 tagA: TypeTag[A]
                               ): dataset[A with U] = {
