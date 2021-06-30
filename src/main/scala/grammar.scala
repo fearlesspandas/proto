@@ -7,7 +7,9 @@ package object grammar {
   import dataset._
   implicit def evaluate[T](t:produces[T]):T = t.value
   def remove[U <: dataset[_], A <: dataset[_]](src: dataset[A with U], u: U): dataset[A] = null
-
+  implicit class evaluater[ T](src:dataset[_] with produces[T]){
+    def getValue:T = src.asInstanceOf[produces[T]].value
+  }
   implicit class AAA[B <: axiom[B]](m: dataset[B]) {
     def flatMap[C <: dataset[_]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
@@ -32,12 +34,35 @@ package object grammar {
     } else f(m.asInstanceOf[B])
 
   }
+
+
 implicit class toOption[A<:dataset[A]](src:dataset[A]){
-  def toOption:Option[A] = Some(src.asInstanceOf[A])
+  def toOption:Option[A] = if(!src.isEmpty)Some(src.asInstanceOf[A]) else None
+  def self:A = if(src.isEmpty) throw src.asInstanceOf[DatasetError[A]].value.head else src.asInstanceOf[A]
 }
+
+//  implicit class Fetcher2[A<:dataset[A]](src:dataset[A]) extends Fetcher[A](src){
+//    override def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = ???
+//  }
   implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
 
+    def console(dat:dataset[A] = src):dataset[A] = {
+      val cmd = scala.io.StdIn.readLine()
+      val matchingDatasets = dat.context.values.filter(_.toString.toUpperCase.contains(cmd.toUpperCase())).map(d => d match {
+        case p:produces[_] =>  s"${d.toString}\n\t${p.value.toString.take(100)}"
+        case _ => d.toString
+      } ).foldLeft("")(_ + "\n" + _)
+      val commands = Set("iter","run","derive","fetch")
+      val matchingcommands = commands.filter(_.toUpperCase == cmd.toUpperCase)
+      cmd match {
+        case "exit" => return dat
+        case _ if matchingDatasets.nonEmpty => println(matchingDatasets)
+        //case _ if matchingcommands.nonEmpty => println(dat.)
+        case _ => ???
 
+      }
+      console()
+    }
 
     def iter[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
                                 implicit ttag: TypeTag[U],
@@ -75,7 +100,22 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
               b => src.withContext(src.context ++ b.context)
             )
         })
+
+  def runWith[B <: dataset[A],U<:model[A,B]](instU:U with model[A,B])(
+                                                         implicit ttag: TypeTag[U],
+                                                         tagA: TypeTag[A],
+                                                         tagb:TypeTag[B]
+                                                       ): dataset[A] =
+    if (src.isEmpty) DatasetError[A]()
+    else
+        instU.apply(src).fold(
+          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
+        )(
+          b => if(b.context.isEmpty) src.include(b) else src.withContext(src.context ++ b.context)
+        )
+
   }
+
 
   implicit class Fetcher[A <: dataset[_]](src: dataset[A]) {
 

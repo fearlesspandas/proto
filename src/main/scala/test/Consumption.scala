@@ -10,9 +10,10 @@ object Consumption {
   case class Consumption(val value:Seq[Event]) extends ConsumptionType with produces[Seq[Event]]{
     override def apply(src: dataset[dep]): dataset[Consumption] =
       for {
+
         counter <- src.fetch[Counter]
       } yield {
-        Consumption(Seq(spendEvent(counter * 2, counter)))
+        Consumption((0 to 1000).map(_ => spendEvent(counter * 2, counter)))
       }
   }
   case class Counter(value:Int) extends index[Counter] with produces[Int]{

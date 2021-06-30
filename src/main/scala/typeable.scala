@@ -9,13 +9,13 @@ package object dataset {
   private[core] type idtype = Any
 
 
-//  def getTypeTag[T: TypeTag](obj: T) = typeTag[T]
-//
-//  def m[T: TypeTag, S: TypeTag](x: T, y: S): Boolean = {
-//    val leftTag = typeTag[T]
-//    val rightTag = typeTag[S]
-//    leftTag.tpe <:< rightTag.tpe
-//  }
+  def getTypeTag[T: TypeTag](obj: T) = typeTag[T]
+
+  def compareTypes[T: TypeTag, S: TypeTag](x: T, y: S): Boolean = {
+    val leftTag = typeTag[T]
+    val rightTag = typeTag[S]
+    leftTag.tpe <:< rightTag.tpe
+  }
 
   private[core] def buildId[A: TypeTag]: idtype = typeTag[A].tpe.typeSymbol.toString()
 
@@ -74,7 +74,9 @@ package object dataset {
    val value:T
   }
 
+  trait Context
   trait dataset[+A <: dataset[_]] {
+
     private[core] val context: contexttype
     private[core] val relations:Map[idtype,idtype]
     def isEmpty:Boolean
@@ -93,6 +95,7 @@ package object dataset {
 
   trait model[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
     self =>
+    override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
     private[core] override def withContext(ctx: contexttype): dataset[output] = DatasetError[output](new Error("No withContext method available"))
@@ -139,4 +142,15 @@ package object dataset {
     private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
 
+//  case class Context[A<:dataset[A]](f:idtype => dataset[A]){
+//    def ++(g:idtype => dataset[A]):Context[A] = {
+//      val composableF = (id:idtype) => f(id).fold(_ => g(id))(x => x)
+//      Context(composableF)
+//    }
+//    def get(id:idtype):dataset[A] = f(id)
+//    def updated(id:idtype,data:dataset[A]):Context[A] = {
+//      val newF = (idIn:idtype) => if(idIn == id) data else f(id)
+//      Context(newF)
+//    }
+//  }
 }

@@ -19,7 +19,7 @@ object Account {
   }
 
   case class CheckingAccount(id:Long,balance: Double) extends Account {
-    override def apply(balance: Double): CheckingAccount = CheckingAccount(id,balance)
+    override def apply(newbalance: Double): CheckingAccount = CheckingAccount(id,newbalance)
   }
 
   case class BokerageAccount(id:Long,balance: Double) extends Account {
@@ -31,19 +31,21 @@ object Account {
   }
 
 
-  case class GrowAccounts() extends model[Accounts with AccountRates, Accounts] {
+  case object GrowAccounts extends model[Accounts with AccountRates, Accounts] {
     override def apply(src: dataset[Accounts with AccountRates]): dataset[Accounts] = for {
       accounts <- src.fetch[Accounts]
+
       rates <- src.fetch[AccountRates]
     } yield {
-     src.include(Accounts(accounts.value.map(acct => acct.deposit(acct.balance * rates(acct)))))
+     val res = accounts.value.foldLeft[dataset[Accounts]](src)((accountsAccum,acct) => accountsAccum.deposit(acct,acct.balance * rates(acct)))
+      res
     }
   }
 
   import scala.reflect.runtime.universe.TypeTag
 
   implicit class GrowAccountsGrammar[A<:Accounts with AccountRates](src:dataset[A])(implicit taga:TypeTag[A]){
-    def growAccounts:dataset[A] = src.run[GrowAccounts]
+    def growAccounts:dataset[A] = src.run[GrowAccounts.type]
   }
 
   //this class illustrates how you would define an operation generally over
@@ -52,15 +54,22 @@ object Account {
 
   case class Accounts(val value: Seq[Account]) extends model[Accounts, Accounts] with produces[Seq[Account]] {
     override def apply(src: dataset[Accounts]): dataset[Accounts] = src.fetch[Accounts]
-    private def apply(acctMap:Map[Long,Account]):dataset[Accounts] = new Accounts(acctMap.values.toSeq) {
-       lazy val accountMap = acctMap
+    private def apply(account:Account):dataset[Accounts] = {
+      val acctMap = this.accountMap
+      val exists = acctMap.get(account.id).isDefined
+      lazy val updatedMap = acctMap.updated(account.id,account)
+      val newAcctColl = if(exists) updatedMap.values.toSeq else value :+ account
+      new Accounts(newAcctColl){
+        lazy val accountMap = if (acctMap != null) updatedMap else Map(account.id -> account)
+      }
     }
     private lazy val accountMap:Map[Long,Account] = value.map(a => a.id -> a).toMap
     def get(id:Long):Account = accountMap(id)
-    def update(acct:Account):dataset[Accounts] = apply(accountMap.updated(acct.id,acct))
+    def update(acct:Account):dataset[Accounts] = apply(acct)
   }
-
-  implicit class Spender[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
+  
+  implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
+    require(!src.isInstanceOf[Accounts],"cannot use implicit Accounts grammar on Accounts object. Must be used on a context containing Accounts")
     def accounts:dataset[Accounts] = src.fetch[Accounts]
     def getAccount(id:Long):Option[Account] = for{
       accounts <- src.fetch[Accounts].toOption
@@ -82,18 +91,13 @@ object Account {
     }yield{src.spend(accounts.get(from.id),amt).deposit(accounts.get(to.id),amt)}
   }
   type SpendSimDep = Accounts with Consumption with Counter
-  case class SpendWildly() extends model[SpendSimDep,Accounts] {
-    override def apply(src: dataset[Accounts with Consumption with Counter]): dataset[Accounts] =for{
+  case class SpendWildly() extends model[SpendSimDep,Accounts with Counter] {
+    override def apply(src: dataset[Accounts with Consumption with Counter]): dataset[Accounts with Counter] =for{
       accounts <- src.fetch[Accounts]
+      consumption <- src.derive[Consumption]
     }yield{
-      accounts.foldLeft(src)((src_, account) => for{
-        consumption <- src_.fetch[Consumption]
-        counter <- src_.fetch[Counter]
-      }yield {
-        val amt = consumption.value.map(_.amount).sum
-        src_.spend(account,amt)
-        .include(consumption).include(counter)
-      })
+      val res = accounts.foldLeft(src.iter[Counter])((accumSrc,acct) => accumSrc.spend(acct,consumption.value.map(_.amount).sum))
+      res
     }
   }
   //case class InputAccounts(value:Seq[Account]) extends Accounts{
