@@ -67,10 +67,13 @@ object Account {
     def get(id:Long):Account = accountMap(id)
     def update(acct:Account):dataset[Accounts] = apply(acct)
   }
-  
+
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     require(!src.isInstanceOf[Accounts],"cannot use implicit Accounts grammar on Accounts object. Must be used on a context containing Accounts")
     def accounts:dataset[Accounts] = src.fetch[Accounts]
+    def underlyingAccounts:Val[Seq[Account]] = for{
+      accounts <- src.accounts
+    }yield Val[Seq[Account]](accounts.value)
     def getAccount(id:Long):Option[Account] = for{
       accounts <- src.fetch[Accounts].toOption
     }yield accounts.get(id)

@@ -28,7 +28,7 @@ object runner {
   println("Processing")
   val dat = data[Counter]()
     .include(starterConsumption)
-    .include(Counter(1))
+    //.include(Counter(1))
     .include(Prog())
     .include[EventStore,Events](starterEvents)
     .include[CycleState,One](One())
@@ -53,6 +53,8 @@ object runner {
     //
     .run[Prog]
 
+  //dat.accounts.accounts
+
   //      .run[Prog]
   //      .run[Prog]
   //      .run[Prog]
@@ -66,7 +68,7 @@ object runner {
   //      .run[Prog]
   //      .run[Prog],rand2.value
   val end = System.currentTimeMillis()
-  println(dat.accounts.asInstanceOf[Accounts].value)
+  println(dat)
   // println(dat.fetch[CycleState])
   //   println(dat.fetch[Compound].asInstanceOf[Compound].value)
   //    println(dat.fetch[Accounts].asInstanceOf[Accounts].value)
