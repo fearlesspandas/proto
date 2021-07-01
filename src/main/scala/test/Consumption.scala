@@ -3,14 +3,11 @@ import Typical.core.grammar._
 import EventHandler._
 import Typical.core.dataset._
 object Consumption {
-  type EventDeps = EventStore with Counter
-  type ImplicitEvents = EventStore
-  type dep = Counter//EventDeps with ImplicitEvents
+  type dep = Counter
   type ConsumptionType = dep model Consumption
   case class Consumption(val value:Seq[Event]) extends ConsumptionType with produces[Seq[Event]]{
     override def apply(src: dataset[dep]): dataset[Consumption] =
       for {
-
         counter <- src.fetch[Counter]
       } yield {
         Consumption((0 to 1000).map(_ => spendEvent(counter * 2, counter)))

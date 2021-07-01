@@ -75,7 +75,7 @@ package object dataset {
   }
 
   trait Context
-  trait dataset[+A <: dataset[_]] {
+  sealed trait dataset[+A <: dataset[_]] {
 
     private[core] val context: contexttype
     private[core] val relations:Map[idtype,idtype]
@@ -114,12 +114,12 @@ package object dataset {
 //    val combid = idcomb(id_l,id_r)
 //  }
 
-  case class Val[+T](value:T) extends dataset[Nothing] with produces[T]{
-    private[core] override val context: contexttype = Map()
-    override final def isEmpty = false
-    private[core] override def withContext(ctx: contexttype): dataset[Nothing] = null
-    private[core] override val relations = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[Nothing] = DatasetError[Nothing](new Error("No withContext method available"))
+  case class Val[+T](value:T) extends axiom[Nothing] with produces[T]{
+//    private[core] override val context: contexttype = Map()
+//    override final def isEmpty = false
+//    private[core] override def withContext(ctx: contexttype): dataset[Nothing] = null
+//    private[core] override val relations = Map()
+//    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[Nothing] = DatasetError[Nothing](new Error("No withContext method available"))
   }
   case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
     private[core] override val context:contexttype = Map()

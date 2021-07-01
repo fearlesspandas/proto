@@ -7,25 +7,37 @@ package object grammar {
   import dataset._
   implicit def evaluate[T](t:produces[T]):T = t.value
   def remove[U <: dataset[_], A <: dataset[_]](src: dataset[A with U], u: U): dataset[A] = null
-  implicit class evaluater[ T](src:dataset[_] with produces[T]){
-    def getValue:T = src.asInstanceOf[produces[T]].value
+  implicit class evaluatorModels[A<:dataset[A] with model[_,A]](src:dataset[A])(implicit taga:TypeTag[A]){
+    def getValue[T](implicit  ev: A <:< produces[T]):dataset[Nothing] with produces[T] =
+      if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
+    else for{
+      a <- src.fetch[A]
+    }yield Val(a.value)
   }
-
-  implicit class VVV[T](m: Val[T]) {
-    def flatMap[U](f: T => Val[U]): Val[U] =  f(m.value)
-    def map[U](f: T => U): Val[U] =  Val(f(m.value))
-    def flatten[U](implicit ev : T <:< Val[U]):Val[U] = ev(m.value)
-
+  implicit class evaluatorAxioms[A<:dataset[A] with axiom[A]](src:dataset[A])(implicit taga:TypeTag[A]){
+    def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
+      if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
+      else for{
+        a <- src.fetch[A]
+      }yield Val(a.value)
   }
+//  implicit class VVV[T](m: Val[T]) {
+//    def flatMap[U](f: T => Val[U]): Val[U] =  if(m.isEmpty)
+//      val lastErr = m.asInstanceOf[DatasetError]
+//    else f(m.value)
+//    def map[U](f: T => U): Val[U] =  Val(f(m.value))
+//    def flatten[U](implicit ev : T <:< Val[U]):Val[U] = ev(m.value)
+//
+//  }
   implicit class AAA[B <: axiom[B]](m: dataset[B]) {
-    def flatMap[C <: dataset[_]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
+    def flatMap[C <: dataset[_],U](f: B => dataset[C] with U): dataset[C] with U = if (m.isEmpty) {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
-      DatasetError[C](new Error(s"error while processing FlatMap")).append(lasterr: _*)
+      DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
     } else f(m.asInstanceOf[B])
 
-    def map[C <: dataset[_]](f: B => dataset[C]): dataset[C] = if (m.isEmpty) {
+    def map[C <: dataset[_],U](f: B => dataset[C] with U): dataset[C] with U = if (m.isEmpty) {
       val lasterr = m.asInstanceOf[DatasetError[B]].value
-      DatasetError[C](new Error(s"error while processing map")).append(lasterr: _*)
+      DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
     } else f(m.asInstanceOf[B])
   }
 

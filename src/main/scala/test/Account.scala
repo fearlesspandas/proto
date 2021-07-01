@@ -80,7 +80,7 @@ object Account {
     def getAccountModel(id:Long):dataset[Nothing] with produces[Account] = (for{
       accounts <- src.fetch[Accounts]
     }yield Val(value = accounts.get(id)))
-      .asInstanceOf[dataset[Nothing] with produces[Account]]
+      //.asInstanceOf[dataset[Nothing] with produces[Account]]
     def spend(account:Account,amt:Double):dataset[A] = for{
       accounts <- src.fetch[Accounts]
       res <- accounts.update(accounts.get(account.id).spend(amt))
