@@ -1,11 +1,10 @@
 package test
 import Typical.core.dataset._
 import Typical.core.grammar._
-import src.main.scala.test.Consumption.Counter
-
+import Consumption._
 import scala.util.Random
 object RandomSim{
-  case class RandomSim(prob:Double,proportion:Double,value:BigDecimal) extends model[RandomSim,RandomSim] {
+  case class RandomSim(prob:Double,proportion:Double,value:BigDecimal) extends ==>[RandomSim,RandomSim] {
     override def apply(src: dataset[RandomSim]): dataset[RandomSim] = for{
       r <- src.fetch[RandomSim]
     }yield {

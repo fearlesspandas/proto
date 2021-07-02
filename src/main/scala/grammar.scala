@@ -6,42 +6,21 @@ package object grammar {
 
   import dataset._
   implicit def evaluate[T](t:produces[T]):T = t.value
-  def remove[U <: dataset[_], A <: dataset[_]](src: dataset[A with U], u: U): dataset[A] = null
-  implicit class evaluatorModels[A<:dataset[A] with model[_,A]](src:dataset[A])(implicit taga:TypeTag[A]){
+  implicit class evaluatorModels[A<:dataset[A] with ==>[_,A]](src:dataset[A])(implicit taga:TypeTag[A]){
     def getValue[T](implicit  ev: A <:< produces[T]):dataset[Nothing] with produces[T] =
       if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
     else for{
       a <- src.fetch[A]
     }yield Val(a.value)
   }
-  implicit class evaluatorAxioms[A<:dataset[A] with axiom[A]](src:dataset[A])(implicit taga:TypeTag[A]){
+  implicit class evaluatorAxioms[A<:dataset[A] with ::[A]](src:dataset[A])(implicit taga:TypeTag[A]){
     def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
       if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
       else for{
         a <- src.fetch[A]
       }yield Val(a.value)
   }
-//  implicit class VVV[T](m: Val[T]) {
-//    def flatMap[U](f: T => Val[U]): Val[U] =  if(m.isEmpty)
-//      val lastErr = m.asInstanceOf[DatasetError]
-//    else f(m.value)
-//    def map[U](f: T => U): Val[U] =  Val(f(m.value))
-//    def flatten[U](implicit ev : T <:< Val[U]):Val[U] = ev(m.value)
-//
-//  }
-  implicit class AAA[B <: axiom[B]](m: dataset[B]) {
-    def flatMap[C <: dataset[_],U](f: B => dataset[C] with U): dataset[C] with U = if (m.isEmpty) {
-      val lasterr = m.asInstanceOf[DatasetError[B]].value
-      DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
-    } else f(m.asInstanceOf[B])
-
-    def map[C <: dataset[_],U](f: B => dataset[C] with U): dataset[C] with U = if (m.isEmpty) {
-      val lasterr = m.asInstanceOf[DatasetError[B]].value
-      DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
-    } else f(m.asInstanceOf[B])
-  }
-
-  implicit class FFFF[B <: model[_ <: dataset[_], B]](m: dataset[B])(implicit tagb: TypeTag[B]) {
+  implicit class MonadicDatasets[B <: dataset[B]](m: dataset[B])(implicit tagb: TypeTag[B]) {
     def flatMap[C <: dataset[_], U](f: B => dataset[C] with U)(implicit tagC: TypeTag[C]): dataset[C] with U =
       if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
@@ -53,21 +32,17 @@ package object grammar {
       if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
         DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
-    } else
+      } else
         f(m.asInstanceOf[B])
 
   }
-
 
 implicit class toOption[A<:dataset[A]](src:dataset[A]){
   def toOption:Option[A] = if(!src.isEmpty)Some(src.asInstanceOf[A]) else None
   def self:A = if(src.isEmpty) throw src.asInstanceOf[DatasetError[A]].value.head else src.asInstanceOf[A]
 }
 
-//  implicit class Fetcher2[A<:dataset[A]](src:dataset[A]) extends Fetcher[A](src){
-//    override def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = ???
-//  }
-  implicit class Calcer[A <: dataset[_]](src: dataset[A]) {
+  implicit class UniversalDatasetOps[A <: dataset[_]](src: dataset[A]) {
 
     def console(dat:dataset[A] = src):dataset[A] = {
       val cmd = scala.io.StdIn.readLine()
@@ -79,24 +54,24 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
       val matchingcommands = commands.filter(_.toUpperCase == cmd.toUpperCase)
       cmd match {
         case "exit" => return dat
-        case _ if matchingDatasets.nonEmpty => println(matchingDatasets)
+        case _ if matchingDatasets.nonEmpty => println(s"--------------------------------------------------$matchingDatasets\n-------------------------------------------------------\n")
         //case _ if matchingcommands.nonEmpty => println(dat.)
-        case _ => ???
+        case _ => println("unrecognized command")
 
       }
       console()
     }
-
+    //def isDefinedAt[]:Boolean
     def iter[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
                                 implicit ttag: TypeTag[U],
                                 tagA: TypeTag[A]
                               ): dataset[A with U] = {
       if (src.isEmpty) {
-        DatasetError[A with U](new Error(s"Error while doing calc ${buildId[U]}")).append(src.asInstanceOf[DatasetError[A]].value: _*)
+        DatasetError[A with U](new Error(s"Error while doing iter ${buildId[U]}")).append(src.asInstanceOf[DatasetError[A]].value: _*)
       }
       else
         src.derive[U].fold(
-          e => DatasetError[A with U](new Error(s"Failure to calc ${buildId[U]}")).append(e.value: _*)
+          e => DatasetError[A with U](new Error(s"Failure to iter ${buildId[U]}")).append(e.value: _*)
         )(
           (nextU: dataset[U]) => src.include[U, U](nextU.asInstanceOf[U])
         )
@@ -105,17 +80,21 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
     def derive[U <: Function1[dataset[A], dataset[U]] with dataset[U]](implicit utag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = {
       if (src.isEmpty) DatasetError[U](new Error(s"Error while doing derive ${buildId[U]}")).append(src.asInstanceOf[DatasetError[A]].value: _*)
       else
-        src.asInstanceOf[dataset[A with U]].multifetch[U].fold(e => DatasetError[U](new Error(s"Error while doing derive ${buildId[U]}")).append(e.value: _*))(ustate => ustate.asInstanceOf[U].apply(src))
+        src.asInstanceOf[dataset[A with U]].multifetch[U].fold(
+          e => DatasetError[U](new Error(s"Error while doing derive ${buildId[U]}")).append(e.value: _*)
+        )(
+          ustate => ustate.asInstanceOf[U].apply(src)
+        )
     }
 
-    def run[U <: model[A, _ >: dataset[A] <: dataset[_]]](
+    def run[U <: A ==>  (_ >: dataset[A] <: dataset[_])](
                                                            implicit ttag: TypeTag[U],
                                                            tagA: TypeTag[A]
                                                          ): dataset[A] =
       if (src.isEmpty) src
       else
         src.asInstanceOf[dataset[A with U]].multifetch[U].fold(
-          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
+          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}, No runtime instance")).append(e.value: _*)
         )(instU => {
             instU.asInstanceOf[U].apply(src).fold(
               e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
@@ -124,7 +103,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
             )
         })
 
-  def runWith[B <: dataset[A],U<:model[A,B]](instU:U with model[A,B])(
+  def runWith[B <: dataset[A],U <: A ==> B](instU:U with (A ==> B))(
                                                          implicit ttag: TypeTag[U],
                                                          tagA: TypeTag[A],
                                                          tagb:TypeTag[B]
@@ -158,7 +137,8 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         src.context.get(uid) match {
           case Some(d: U) if d != null && d.isInstanceOf[U] =>
             apply[U](d)
-          case _ => DatasetError[U](new Error(s"No value for ${buildId[U]} found for fetch[$uid]"))
+          case _ if ttag.tpe =:= tagA.tpe => src
+          case _ => DatasetError[U](new Error(s"No value for ${buildId[U]} found for fetch[$uid] in $src"))
         }
       }
     }

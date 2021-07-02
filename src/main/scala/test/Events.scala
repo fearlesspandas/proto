@@ -1,36 +1,43 @@
-package src.main.scala.test
+package test
 
 import Typical.core.grammar
 import Typical.core.dataset._
-import src.main.scala.test.Consumption.{Consumption, Counter}
+import Consumption._
+import Account._
 package object EventHandler {
   import grammar._
 
-  trait Event {
+  trait Event extends ::[Event]{
     val amount: Double
   }
 
-  case class spendEvent(amount: Double, Year: Int) extends Event
+  case class spendEvent(amount: Double, accountid: Long) extends Event
+  case class depositEvent(amount: Double, accountid: Long) extends Event
 
-  type dep = EventStore  with Counter
+  type dep = EventStore  with Accounts
 
-  trait EventStore extends model[EventStore with Counter,EventStore]{
+  trait EventStore extends (EventStore with Accounts ==> EventStore){
     val value:Seq[Event]
     val formula:String
+    def addEvents(events:Event*):dataset[EventStore]
   }
    case class Events(
-                      value:Seq[Event],
-                      formula:String
-                   ) extends EventStore {
+                      value:Seq[Event]
+                   ) extends EventStore{
+     val formula = value.map(e => s" + ${e.amount}").foldLeft("")(_ + _)
     override def apply(src: dataset[dep]): dataset[EventStore] =
       for {
         consumptionModel <- src.derive[Consumption]
-        //thing = src.calc[Consumption]
       } yield Events(
-          consumptionModel ++ value,
-          formula + consumptionModel.value
-            .map(e => s" + ${e.amount}")
-            .foldLeft("")(_ + _)
+          consumptionModel ++ value
         )
+     def addEvents(events: Event*):dataset[EventStore] =
+       Events(
+        events.toSeq ++ this.value
+      )
+  }
+  import scala.reflect.runtime.universe.TypeTag
+  implicit class EventGrammar[A<:EventStore with Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
+    def runEventLoop:dataset[A] = src.iter[EventStore]
   }
 }

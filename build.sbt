@@ -14,6 +14,9 @@ initialCommands in console := """
                                 |import test.runner._
                                 |import test._
                                 |import test.Account._
+                                |import GrowAccounts._
+                                |import Consumption._
+                                |import SpendWildly._
     """.trim.stripMargin
 //libraryDependencies += "dev.zio" %% "zio" % "1.0.5"
 //
