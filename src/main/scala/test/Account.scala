@@ -10,9 +10,7 @@ object Account {
     self =>
     val balance: Double
     val id:Long
-
     def apply(balance: Double): Account
-
     def spend(amt:Double) = apply(balance - amt)
     def deposit(amt:Double) = apply(balance + amt)
   }
@@ -59,9 +57,9 @@ object Account {
 
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.fetch[Accounts]
-    def events:dataset[EventStore] = for{
+    def events:Val[Seq[Event]] = for{
       accounts <- src.accounts
-    }yield Events(accounts.eventLog)//Val(accounts.eventLog)
+    }yield Val(accounts.eventLog)//Val(accounts.eventLog)
     def underlyingAccounts:Val[Seq[Account]] = for{
       accounts <- src.accounts
     }yield Val[Seq[Account]](accounts.value)
@@ -71,7 +69,7 @@ object Account {
     def getAccount(id:Long):Option[Account] = for{
       accounts <- src.accounts.toOption
     }yield accounts.get(id)
-    def getAccountModel(id:Long):dataset[Nothing] with produces[Account] = (for{
+    def getAccountModel(id:Long):Val[Account] = (for{
       accounts <- src.accounts
     }yield Val(value = accounts.get(id)))
     def spend(account:Account,amt:Double):dataset[A] = for{

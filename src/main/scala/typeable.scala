@@ -86,7 +86,7 @@ package object dataset {
     private[core] def withRelations(rel:Map[idtype,idtype]):dataset[A]
   }
 
-  trait ::[ A <: ::[A]] extends dataset[A] {
+  trait ::[+A <: ::[A]] extends dataset[A] {
     private[core] override val context: contexttype = Map()
     override final def isEmpty = false
     private[core] override def withContext(ctx: contexttype): dataset[A] = null
@@ -112,7 +112,7 @@ package object dataset {
   }
 
 
-  case class Val[+T](value:T) extends ::[Nothing] with produces[T]
+  case class Val[+T](value:T) extends ::[Val[_]] with produces[T]
 
   case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
     private[core] override val context:contexttype = Map()

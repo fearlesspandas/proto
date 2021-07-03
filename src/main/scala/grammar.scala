@@ -7,7 +7,7 @@ package object grammar {
   import dataset._
   implicit def evaluate[T](t:produces[T]):T = t.value
   implicit class evaluatorModels[A<:dataset[A] with ==>[_,A]](src:dataset[A])(implicit taga:TypeTag[A]){
-    def getValue[T](implicit  ev: A <:< produces[T]):dataset[Nothing] with produces[T] =
+    def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
       if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
     else for{
       a <- src.fetch[A]
@@ -37,6 +37,9 @@ package object grammar {
 
   }
 
+  implicit class FromOption[A<:dataset[A]](src:Option[A])(implicit taga:TypeTag[A]){
+    def fromOption:dataset[A] = if(!src.isEmpty) src.get else DatasetError[A](new Error(s"None found for Option[${buildId[A]}]"))
+  }
 implicit class toOption[A<:dataset[A]](src:dataset[A]){
   def toOption:Option[A] = if(!src.isEmpty)Some(src.asInstanceOf[A]) else None
   def self:A = if(src.isEmpty) throw src.asInstanceOf[DatasetError[A]].value.head else src.asInstanceOf[A]
@@ -179,6 +182,11 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
           .asInstanceOf[dataset[A with U with T]]
       }
 
+    }
+    def includeIfNotPresent[U<:dataset[_]](value:U)(implicit tagu:TypeTag[U]):dataset[A with U] = {
+      if(a.context.contains(buildIdLor[U](a.relations)))
+        a.asInstanceOf[dataset[A with U]]
+      else a.include(value)
     }
   }
 
