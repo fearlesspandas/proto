@@ -16,7 +16,7 @@ object runner {
   import Property._
   import Date._
   println("Initializing")
-  val starterAccounts = Accounts(Seq(CheckingAccount(1,100),BokerageAccount(2,10000)),Seq())
+  val starterAccounts = Accounts(Seq(CheckingAccount(1,3000),BokerageAccount(2,60000)),Seq())
   val starterProperties = Properties(Seq(RentalProperty(1,1300)),Seq())
   val startingDate = Month(LocalDate.of(2021,1,1))
   type ProgramDependencies =
@@ -42,12 +42,12 @@ object runner {
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
   }
-  case class Prog() extends ==>[ProgramDependencies, ProgramDependencies] {
+  case class Prog() extends (ProgramDependencies ==> ProgramDependencies) {
     override def apply(src: dataset[ProgramDependencies]): dataset[ProgramDependencies] = for{
       date <- src.currentDate
     }yield{
       date match {
-        case m:Month =>
+        case _:Month| _:Week =>
           src
           .growAccounts
           .accrueRent
@@ -57,10 +57,7 @@ object runner {
           (0 until 12).foldLeft(src)((src_,_) =>
             src_
               .toMonthlyCadence
-              .growAccounts
-              .accrueRent
-              .payRents
-              .nextPeriod
+            .run[Prog]
           ).toYearlyCadence
       }
 

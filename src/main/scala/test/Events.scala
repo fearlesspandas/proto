@@ -1,5 +1,7 @@
 package test
 
+import java.time.LocalDate
+
 import Typical.core.grammar
 import Typical.core.dataset._
 import Consumption._
@@ -11,8 +13,8 @@ package object EventHandler {
     val amount: Double
   }
 
-  case class spendEvent(amount: Double, accountid: Long) extends Event
-  case class depositEvent(amount: Double, accountid: Long) extends Event
+  case class spendEvent(amount: Double, accountid: Long,date:LocalDate) extends Event
+  case class depositEvent(amount: Double, accountid: Long,date:LocalDate) extends Event
 
   type dep = EventStore  with Accounts
 

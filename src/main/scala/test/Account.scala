@@ -1,11 +1,23 @@
 package test
 
+import java.time.LocalDate
+
 import Typical.core.dataset._
 import Typical.core.grammar._
-import EventHandler._
+import Date._
+
 import scala.reflect.runtime.universe.TypeTag
 object Account {
 
+  trait AccountingEvent extends ::[AccountingEvent]{
+    val amount:Double
+    val accountid:Long
+    val date:LocalDate
+  }
+  case class spendEvent(amount: Double, accountid: Long,date:LocalDate) extends AccountingEvent
+  case class depositEvent(amount: Double, accountid: Long,date:LocalDate) extends AccountingEvent
+  case class marketGrowthEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
+  case class marketLossEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
   trait Account extends ::[Account] {
     self =>
     val balance: Double
@@ -36,7 +48,7 @@ object Account {
   //a dataset or anything contained within it.
 
 
-  case class Accounts(val value: Seq[Account],eventLog:Seq[Event]) extends (Accounts ==> Accounts) with produces[Seq[Account]] {
+  case class Accounts(val value: Seq[Account],eventLog:Seq[AccountingEvent]) extends (Accounts ==> Accounts) with produces[Seq[Account]] {
     override def apply(src: dataset[Accounts]): dataset[Accounts] = src.fetch[Accounts]
     private def apply(account:Account):dataset[Accounts] = {
       val acctMap = this.accountMap
@@ -47,7 +59,7 @@ object Account {
         lazy val accountMap = if (acctMap != null) updatedMap else Map(account.id -> account)
       }
     }
-    private[Account] def addEvent(events:Event*):dataset[Accounts] = new Accounts(this.value,events ++ this.eventLog)
+    private[Account] def addEvent(events:AccountingEvent*):dataset[Accounts] = new Accounts(this.value,events ++ this.eventLog)
     private lazy val accountMap:Map[Long,Account] = value.map(a => a.id -> a).toMap
 
     def get(id:Long):Account = accountMap(id)
@@ -57,13 +69,13 @@ object Account {
 
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.fetch[Accounts]
-    def events:Val[Seq[Event]] = for{
+    def events:Val[Seq[AccountingEvent]] = for{
       accounts <- src.accounts
     }yield Val(accounts.eventLog)//Val(accounts.eventLog)
     def underlyingAccounts:Val[Seq[Account]] = for{
       accounts <- src.accounts
     }yield Val[Seq[Account]](accounts.value)
-    private[Account] def addEvents(events:Event*):dataset[Accounts] = for{
+    private[Account] def addEvents(events:AccountingEvent*):dataset[Accounts] = for{
       accounts <- src.accounts
     }yield accounts.addEvent(events:_*)
     def getAccount(id:Long):Option[Account] = for{
@@ -72,17 +84,43 @@ object Account {
     def getAccountModel(id:Long):Val[Account] = (for{
       accounts <- src.accounts
     }yield Val(value = accounts.get(id)))
-    def spend(account:Account,amt:Double):dataset[A] = for{
+
+  }
+
+  implicit class GenerateSpendByAccount[A<:Account](src:A){
+    def generateSpendEvent(amt:Double,id:Long,date:LocalDate) :AccountingEvent= src match{
+      case _:CheckingAccount => spendEvent(amt,id,date)
+      case _:BokerageAccount => marketLossEvent(amt,id,date)
+    }
+    def generateDepositEvent(amt:Double,id:Long,date:LocalDate) :AccountingEvent= src match{
+      case _:CheckingAccount => depositEvent(amt,id,date)
+      case _:BokerageAccount => marketGrowthEvent(amt,id,date)
+    }
+  }
+  implicit class LederOperations[A<:Accounts with Date](src:dataset[A])(implicit taga:TypeTag[A]){
+    def withdraw(account:Account, amt:Double):dataset[A] = for{
       accounts <- src.accounts
-      res <- accounts.update(accounts.get(account.id).spend(amt)).addEvents(spendEvent(amt,account.id))
+      date <- src.currentDate
+      res <- accounts.update(accounts.get(account.id).spend(amt)).addEvents(spendEvent(amt,account.id,date))
     }yield src.include(res)
     def deposit(account:Account,amt:Double):dataset[A] = for{
       accounts <- src.accounts
-      res <- accounts.update(accounts.get(account.id).deposit(amt)).addEvents(depositEvent(amt,account.id))
+      date <- src.currentDate
+      res <- accounts.update(accounts.get(account.id).deposit(amt)).addEvents(depositEvent(amt,account.id,date))
     }yield src.include(res)
-    def transfer(from:Account,to:Account,amt:Double):dataset[A] = for{
+    def recordMarketGrowth(account:BokerageAccount,amt:Double):dataset[A] = for{
       accounts <- src.accounts
-    }yield{src.spend(accounts.get(from.id),amt).deposit(accounts.get(to.id),amt)}
+      date <- src.currentDate
+      res <- accounts.update(accounts.get(account.id).spend(amt)).addEvents(marketGrowthEvent(amt,account.id,date))
+    }yield src.include(res)
+    def recordMarketLoss(account:BokerageAccount,amt:Double):dataset[A] = for{
+      accounts <- src.accounts
+      date <- src.currentDate
+      res <- accounts
+        .update(accounts.get(account.id).spend(amt))
+        .addEvents(marketLossEvent(amt,account.id,date))
+    }yield src.include(res)
+
   }
 
 

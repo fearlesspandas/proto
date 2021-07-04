@@ -11,45 +11,40 @@ import scala.reflect.runtime.universe.TypeTag
 
 object Property{
   //define property types
-
   trait Property extends ::[Property]{
     val id:Long
   }
   case class RentalProperty(id:Long, monthlyRent:Double) extends Property
   case class Home(id:Long,costBasis:Double,marketValue:Double)
   //define property events
-  case class rentPaymentDue(propertyId:Long,amount:Double,date:LocalDate) extends Event
+  case class rentPaymentDue(propertyId:Long,amount:Double,date:Date) extends Event
   case class rentPaymentPaid(propertyId:Long,amount:Double,date:LocalDate) extends Event
-
-//  case class GenerateRentPayments(value:Seq[rentPaymentPaid]) extends
-//    (Properties with Date ==> GenerateRentPayments) with
-//  produces[Seq[rentPaymentPaid]]{
-//    override def apply(src: dataset[Properties with Date]): dataset[GenerateRentPayments] = for{
-//      properties <- src.properties
-//      date <- src.currentDate
-//    }yield properties.events.collect({case r:rentPaymentDue => rentPaymentPaid(r.propertyId,r.amount,date)})
-//  }
+  //generate rend due payments in model
+  type RentGenDeps = Properties with Date
   case class GenerateRentDue(value:Seq[rentPaymentDue]) extends
-    (Properties with Date ==> GenerateRentDue) with
+    (RentGenDeps ==> GenerateRentDue) with
     produces[Seq[rentPaymentDue]]{
-    override def apply(src: dataset[Properties with Date]): dataset[GenerateRentDue] = for{
+    override def apply(src: dataset[RentGenDeps]): dataset[GenerateRentDue] = for{
       properties <- src.properties
       date <- src.currentDate
     }yield GenerateRentDue(
          date match {
+           case w:Week if w.value.getDayOfMonth < 7 => properties.collect({
+             case r:RentalProperty => rentPaymentDue(r.id,r.monthlyRent,w)
+           })
           case m:Month => properties.collect({
             case r:RentalProperty => rentPaymentDue(r.id,r.monthlyRent,m)
           })
           case y:Year => properties.collect({
             case r:RentalProperty => (0 to 11).foldLeft(Seq[rentPaymentDue]())(
-              (accum,n) => rentPaymentDue(r.id,r.monthlyRent,y.value.plusMonths(n)) +: accum
+              (accum,n) => rentPaymentDue(r.id,r.monthlyRent,Month(y.value.plusMonths(n))) +: accum
             )
           }).flatten
-        })
-
+           case _ => Seq()
+         })
   }
   implicit class RentGeneratorGrammarPaymentHelper[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
-    def monthlyRent:dataset[GenerateRentDue] =
+    def rentDue:dataset[GenerateRentDue] =
       src
       .includeIfNotPresent(GenerateRentDue(Seq()))
       .derive[GenerateRentDue]
@@ -71,7 +66,6 @@ object Property{
     private[Property] def addEvents(events:Event*) = Properties(value,events ++ eventLog)
     def get(id:Long):dataset[Property] = propertyMap(id)
     def update(property:Property):dataset[Properties] = apply(property)
-    //implicit class PropertiesAPI[](src:)
 
   }
   implicit class PropertiesAPI[A<:Properties](src:dataset[A])(implicit taga:TypeTag[A]){
@@ -83,7 +77,7 @@ object Property{
   implicit class GrowRents[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
     def accrueRent:dataset[A] = for{
       properties <- src.properties
-      monthlyRentPayments <- src.monthlyRent
+      monthlyRentPayments <- src.rentDue
     }yield src.include(
       properties.addEvents(monthlyRentPayments.value:_*)
     )
@@ -98,13 +92,13 @@ object Property{
         .asInstanceOf[Option[Account]]
         .fromOption
     }yield date match {
-      case m:Month =>
+      case _:Month | _:Week =>
         val rentpaymentsdue = properties.events.collect({
-          case r:rentPaymentDue if r.date == date.value => r
+          case r:rentPaymentDue if scala.math.abs(date.getDayOfMonth() - r.date.getDayOfMonth()) < date.numberOfDays => r
         })
         rentpaymentsdue.foldLeft(src)((accumSrc,paymentDue) =>
           accumSrc
-          .spend(rentAcct,paymentDue.amount)
+          .withdraw(rentAcct,paymentDue.amount)
             .include(
               properties.addEvents(
                 rentPaymentPaid(paymentDue.propertyId,paymentDue.amount,date)
