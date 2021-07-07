@@ -46,14 +46,14 @@ object Property{
   implicit class RentGeneratorGrammarPaymentHelper[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
     def rentDue:dataset[GenerateRentDue] =
       src
-      .includeIfNotPresent(GenerateRentDue(Seq()))
-      .derive[GenerateRentDue]
+      .+-(GenerateRentDue(Seq()))
+      .<-+[GenerateRentDue]
   }
 
 
   case class Properties(value:Seq[Property],eventLog:Seq[Event]) extends (Properties ==> Properties) with produces[Seq[Property]]{
     lazy val propertyMap: Map[Long,Property] = value.map(a => a.id -> a).toMap
-    override def apply(v1: dataset[Properties]): dataset[Properties] = v1.fetch[Properties]
+    override def apply(v1: dataset[Properties]): dataset[Properties] = v1.<--[Properties]
     private def apply(account:Property):dataset[Properties] = {
       val pptyMap = this.propertyMap
       val exists = pptyMap.get(account.id).isDefined
@@ -69,7 +69,7 @@ object Property{
 
   }
   implicit class PropertiesAPI[A<:Properties](src:dataset[A])(implicit taga:TypeTag[A]){
-    def properties:dataset[Properties] = if(src.isInstanceOf[Properties]) src else src.fetch[Properties]
+    def properties:dataset[Properties] = if(src.isInstanceOf[Properties]) src else src.<--[Properties]
     def events:Val[Seq[Event]] = for{
       properties <- src.properties
     }yield Val(properties.eventLog)
@@ -77,9 +77,9 @@ object Property{
   implicit class GrowRents[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
     def accrueRent:dataset[A] = for{
       properties <- src.properties
-      monthlyRentPayments <- src.rentDue
-    }yield src.include(
-      properties.addEvents(monthlyRentPayments.value:_*)
+      rentdue <- src.rentDue
+    }yield src.++(
+      properties.addEvents(rentdue.value:_*)
     )
   }
   implicit class PayRents[A<:Properties with Accounts with Date](src:dataset[A])(implicit taga:TypeTag[A]){
@@ -91,15 +91,16 @@ object Property{
         .collectFirst({case c:CheckingAccount => c})
         .asInstanceOf[Option[Account]]
         .fromOption
+      rentdue <- src.rentDue
     }yield date match {
       case _:Month | _:Week =>
         val rentpaymentsdue = properties.events.collect({
           case r:rentPaymentDue if scala.math.abs(date.getDayOfMonth() - r.date.getDayOfMonth()) < date.numberOfDays => r
         })
-        rentpaymentsdue.foldLeft(src)((accumSrc,paymentDue) =>
+        rentdue.foldLeft(src)((accumSrc,paymentDue) =>
           accumSrc
           .withdraw(rentAcct,paymentDue.amount)
-            .include(
+            .++(
               properties.addEvents(
                 rentPaymentPaid(paymentDue.propertyId,paymentDue.amount,date)
               )

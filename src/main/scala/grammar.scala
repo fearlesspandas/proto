@@ -10,14 +10,14 @@ package object grammar {
     def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
       if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
     else for{
-      a <- src.fetch[A]
+      a <- src.<--[A]
     }yield Val(a.value)
   }
   implicit class evaluatorAxioms[A<:dataset[A] with ::[A]](src:dataset[A])(implicit taga:TypeTag[A]){
     def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
       if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
       else for{
-        a <- src.fetch[A]
+        a <- src.<--[A]
       }yield Val(a.value)
   }
   implicit class MonadicDatasets[B <: dataset[B]](m: dataset[B])(implicit tagb: TypeTag[B]) {
@@ -64,8 +64,37 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
       }
       console()
     }
+    def solve[U<: ==>[A,A] with solveable[A]](implicit tagu:TypeTag[U],taga:TypeTag[A]):dataset[A]  = {
+      src.asInstanceOf[dataset[A with U]].multifetch[U].fold(err => err.asInstanceOf[dataset[A]])(
+        uState => {
+          val ufunc = uState.asInstanceOf[U]
+          if (ufunc.solved(src)) return src
+          val thisSolution = src.-->[U]
+          if(ufunc.solved(thisSolution))
+            return thisSolution
+          else{
+            val nextData = ufunc.next(src).map({case a :dataset[A] => a;case _ => DatasetError[A](new Error("context not applicable"))})
+            if(nextData.size == 0)
+              DatasetError[A](new Error("No Solution found"))
+            else{
+              val nextSolutionSet =
+                nextData
+                .filterNot(_.isEmpty)
+                  .map(_.solve[U])
+                  .collect({case d if (!d.isEmpty) => d})
+                  .collectFirst({case d => d})
+              nextSolutionSet match {
+                case Some(d:dataset[A]) => d
+                case _ => DatasetError[A](new Error("No solution found"))
+              }
+            }
+          }
+        }
+      )
+    }
+
     //def isDefinedAt[]:Boolean
-    def iter[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
+    def +->[U <: Function1[dataset[A], dataset[U]] with dataset[U]](
                                 implicit ttag: TypeTag[U],
                                 tagA: TypeTag[A]
                               ): dataset[A with U] = {
@@ -73,14 +102,14 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         DatasetError[A with U](new Error(s"Error while doing iter ${buildId[U]}")).append(src.asInstanceOf[DatasetError[A]].value: _*)
       }
       else
-        src.derive[U].fold(
+        src.<-+[U].fold(
           e => DatasetError[A with U](new Error(s"Failure to iter ${buildId[U]}")).append(e.value: _*)
         )(
-          (nextU: dataset[U]) => src.include[U, U](nextU.asInstanceOf[U])
+          (nextU: dataset[U]) => src.++[U, U](nextU.asInstanceOf[U])
         )
     }
 
-    def derive[U <: Function1[dataset[A], dataset[U]] with dataset[U]](implicit utag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = {
+    def <-+[U <: Function1[dataset[A], dataset[U]] with dataset[U]](implicit utag: TypeTag[U], tagA: TypeTag[A]): dataset[U] = {
       if (src.isEmpty) DatasetError[U](new Error(s"Error while doing derive ${buildId[U]}")).append(src.asInstanceOf[DatasetError[A]].value: _*)
       else
         src.asInstanceOf[dataset[A with U]].multifetch[U].fold(
@@ -90,7 +119,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         )
     }
 
-    def run[U <: A ==>  (_ >: dataset[A] <: dataset[_])](
+    def -->[U <: A ==>  (_ >: dataset[A] <: dataset[_])](
                                                            implicit ttag: TypeTag[U],
                                                            tagA: TypeTag[A]
                                                          ): dataset[A] =
@@ -106,25 +135,25 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
             )
         })
 
-  def runWith[B <: dataset[A],U <: A ==> B](instU:U with (A ==> B))(
-                                                         implicit ttag: TypeTag[U],
-                                                         tagA: TypeTag[A],
-                                                         tagb:TypeTag[B]
-                                                       ): dataset[A] =
-    if (src.isEmpty) DatasetError[A]()
-    else
-        instU.apply(src).fold(
-          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
-        )(
-          b => if(b.context.isEmpty) src.include(b) else src.withContext(src.context ++ b.context)
-        )
+//  def runWith[U<:A ==> _,B<:U#dep](instU:U)(
+//                                                         implicit ttag: TypeTag[U],
+//                                                         tagA: TypeTag[A],
+//                                                         tagb:TypeTag[B]
+//                                                       ): dataset[A] =
+//    if (src.isEmpty) DatasetError[A]()
+//    else
+//        instU.apply(src).fold(
+//          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
+//        )(
+//          b => if(b.context.isEmpty) src.++(b) else src.withContext(src.context ++ b.context)
+//        )
 
   }
 
 
   implicit class Fetcher[A <: dataset[_]](src: dataset[A]) {
 
-    def fetch[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
+    def <--[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
       src.multifetch[U]
 
     /*
@@ -173,8 +202,9 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
   }
 
   implicit class Includer[A <: dataset[_]](a: dataset[A]) {
-    def include[U <: dataset[_], T <: U](value: T)(implicit ttag: TypeTag[U], tag: TypeTag[T]): dataset[A with U with T] = {
-      if (value.isEmpty) DatasetError[A with U with T]()
+    def ++[U <: dataset[_], T <: U](value: T)(implicit ttag: TypeTag[U], tag: TypeTag[T]): dataset[A with U with T] = {
+      if (value.isEmpty) DatasetError[A with U with T](new Error(s"value is empty for ${buildId[U]}")).append(
+        value.asInstanceOf[DatasetError[T]].value:_*)
       else {
         val newRelations = a.relations.updated(buildIdLor[U](a.relations), buildIdLor[T](a.relations))
         val newContext = a.context.updated(buildIdLor[U](newRelations), value)
@@ -183,10 +213,10 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
       }
 
     }
-    def includeIfNotPresent[U<:dataset[_]](value:U)(implicit tagu:TypeTag[U]):dataset[A with U] = {
+    def +-[U<:dataset[_]](value:U)(implicit tagu:TypeTag[U]):dataset[A with U] = {
       if(a.context.contains(buildIdLor[U](a.relations)))
         a.asInstanceOf[dataset[A with U]]
-      else a.include(value)
+      else a.++(value)
     }
   }
 

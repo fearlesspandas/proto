@@ -8,7 +8,7 @@ object SpendEvents{
   type dep = Consumption
   case class SpendEvents(value : Seq[spendEvent]) extends (dep ==> SpendEvents){
     override def apply(src: dataset[dep]): dataset[SpendEvents] =for{
-      eventLog <- src.fetch[Consumption]
+      eventLog <- src.<--[Consumption]
     }yield SpendEvents(
       eventLog.value.collect({case se:spendEvent => se})
     )

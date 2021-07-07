@@ -7,20 +7,20 @@ import Typical.core.grammar._
 import scala.reflect.runtime.universe.TypeTag
 object Date{
   implicit class DateGrammar[A<:Date](src:dataset[A])(implicit taga:TypeTag[A]) {
-    def currentDate:dataset[Date] = if(src.isInstanceOf[Date]) src else src.fetch[Date]
+    def currentDate:dataset[Date] = if(src.isInstanceOf[Date]) src else src.<--[Date]
     def toYearlyCadence:dataset[A] = for{
       date <- src.currentDate
-    }yield src.include[Date,Year](Year(date))
+    }yield src.++[Date,Year](Year(date))
     def toMonthlyCadence:dataset[A] = for{
       date <- src.currentDate
-    }yield src.include[Date,Month](Month(date))
+    }yield src.++[Date,Month](Month(date))
     def toWeeklyCadence:dataset[A] = for{
       date <- src.currentDate
-    }yield src.include[Date,Week](Week(date))
+    }yield src.++[Date,Week](Week(date))
     def toDailyCadence:dataset[A] = for{
       date <- src.currentDate
-    }yield src.include[Date,Day](Day(date))
-    def nextPeriod:dataset[A] = src.iter[Date]
+    }yield src.++[Date,Day](Day(date))
+    def nextPeriod:dataset[A] = src.+->[Date]
   }
 
   sealed trait Date extends index[Date] with produces[LocalDate]{

@@ -49,7 +49,7 @@ object Account {
 
 
   case class Accounts(val value: Seq[Account],eventLog:Seq[AccountingEvent]) extends (Accounts ==> Accounts) with produces[Seq[Account]] {
-    override def apply(src: dataset[Accounts]): dataset[Accounts] = src.fetch[Accounts]
+    override def apply(src: dataset[Accounts]): dataset[Accounts] = src.<--[Accounts]
     private def apply(account:Account):dataset[Accounts] = {
       val acctMap = this.accountMap
       val exists = acctMap.get(account.id).isDefined
@@ -68,7 +68,7 @@ object Account {
   }
 
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
-    def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.fetch[Accounts]
+    def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.<--[Accounts]
     def events:Val[Seq[AccountingEvent]] = for{
       accounts <- src.accounts
     }yield Val(accounts.eventLog)//Val(accounts.eventLog)
@@ -102,24 +102,24 @@ object Account {
       accounts <- src.accounts
       date <- src.currentDate
       res <- accounts.update(accounts.get(account.id).spend(amt)).addEvents(spendEvent(amt,account.id,date))
-    }yield src.include(res)
+    }yield src ++ res
     def deposit(account:Account,amt:Double):dataset[A] = for{
       accounts <- src.accounts
       date <- src.currentDate
       res <- accounts.update(accounts.get(account.id).deposit(amt)).addEvents(depositEvent(amt,account.id,date))
-    }yield src.include(res)
+    }yield src ++ res
     def recordMarketGrowth(account:BokerageAccount,amt:Double):dataset[A] = for{
       accounts <- src.accounts
       date <- src.currentDate
-      res <- accounts.update(accounts.get(account.id).spend(amt)).addEvents(marketGrowthEvent(amt,account.id,date))
-    }yield src.include(res)
+      res <- accounts.update(accounts.get(account.id).deposit(amt)).addEvents(marketGrowthEvent(amt,account.id,date))
+    }yield src ++ res
     def recordMarketLoss(account:BokerageAccount,amt:Double):dataset[A] = for{
       accounts <- src.accounts
       date <- src.currentDate
       res <- accounts
         .update(accounts.get(account.id).spend(amt))
         .addEvents(marketLossEvent(amt,account.id,date))
-    }yield src.include(res)
+    }yield src ++ res
 
   }
 

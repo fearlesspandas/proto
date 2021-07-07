@@ -97,6 +97,7 @@ package object dataset {
 
   trait ==>[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
     self =>
+//    type out = output
     override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
@@ -112,7 +113,7 @@ package object dataset {
   }
 
 
-  case class Val[+T](value:T) extends ::[Val[_]] with produces[T]
+  case class Val[T](value:T) extends ::[Val[_]] with produces[T]
 
   case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
     private[core] override val context:contexttype = Map()
@@ -139,6 +140,11 @@ package object dataset {
     override final def isEmpty: Boolean = false
     private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
+trait solveable[-A<:dataset[_]]{
+  def solved(src:dataset[A]):Boolean
+  def next(src:dataset[A]):Seq[dataset[_]]
+}
+
 
 //  case class Context[A<:dataset[A]](f:idtype => dataset[A]){
 //    def ++(g:idtype => dataset[A]):Context[A] = {

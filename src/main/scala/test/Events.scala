@@ -29,7 +29,7 @@ package object EventHandler {
      val formula = value.map(e => s" + ${e.amount}").foldLeft("")(_ + _)
     override def apply(src: dataset[dep]): dataset[EventStore] =
       for {
-        consumptionModel <- src.derive[Consumption]
+        consumptionModel <- src.<-+[Consumption]
       } yield Events(
           consumptionModel ++ value
         )
@@ -40,6 +40,6 @@ package object EventHandler {
   }
   import scala.reflect.runtime.universe.TypeTag
   implicit class EventGrammar[A<:EventStore with Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
-    def runEventLoop:dataset[A] = src.iter[EventStore]
+    def runEventLoop:dataset[A] = src.+->[EventStore]
   }
 }
