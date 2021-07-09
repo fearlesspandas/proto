@@ -70,9 +70,7 @@ object Property{
   }
   implicit class PropertiesAPI[A<:Properties](src:dataset[A])(implicit taga:TypeTag[A]){
     def properties:dataset[Properties] = if(src.isInstanceOf[Properties]) src else src.<--[Properties]
-    def events:Val[Seq[Event]] = for{
-      properties <- src.properties
-    }yield Val(properties.eventLog)
+    def events:produces[Seq[Event]] = src.properties.biMap[produces[Seq[Event]]](err => noVal(err.value:_*))(d => someval(d.asInstanceOf[Properties].eventLog))
   }
   implicit class GrowRents[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
     def accrueRent:dataset[A] = for{

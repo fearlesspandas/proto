@@ -73,6 +73,10 @@ package object dataset {
   trait produces[+T]{
    val value:T
   }
+  case class someval[T](value:T) extends produces[T]
+  case class noVal(errors:Error *) extends produces[Nothing]{
+    override val value: Nothing = null.asInstanceOf[Nothing]
+  }
 
   trait Context
   sealed trait dataset[+A <: dataset[_]] {
@@ -81,6 +85,8 @@ package object dataset {
     private[core] val context: contexttype
     private[core] val relations:Map[idtype,idtype]
     def isEmpty:Boolean
+    def biMap[B](ifEmpty: DatasetError[A] => B)(f: dataset[A] => B): B = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
+
     def fold[B<:dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(f: dataset[A] => dataset[B]): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
     private[core] def withContext(ctx: contexttype): dataset[A]
     private[core] def withRelations(rel:Map[idtype,idtype]):dataset[A]
@@ -89,9 +95,9 @@ package object dataset {
   trait ::[+A <: ::[A]] extends dataset[A] {
     private[core] override val context: contexttype = Map()
     override final def isEmpty = false
-    private[core] override def withContext(ctx: contexttype): dataset[A] = null
+    private[core] override def withContext(ctx: contexttype): dataset[A] = DatasetError[A](new Error(s"No withContext method available for ${this.toString}"))
     private[core] override val relations = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[A] = DatasetError[A](new Error("No withContext method available"))
+    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[A] = DatasetError[A](new Error(s"No withRelations method available for ${this.toString}"))
   }
   type axiom[A<: ::[A]] = ::[A]
 
@@ -101,9 +107,9 @@ package object dataset {
     override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
-    private[core] override def withContext(ctx: contexttype): dataset[output] = DatasetError[output](new Error("No withContext method available"))
+    private[core] override def withContext(ctx: contexttype): dataset[output] = DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
     private[core] override val relations = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] = null
+    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] =DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
   }
   type model[-dep<:dataset[_],+out<:dataset[_]] = ==>[dep,out]
 

@@ -14,18 +14,25 @@ object Income {
     val id:Long
     val payableTo:Long
     val amount:Double
-    val startDate:Date
-    val endDate:Date
+    val dateRange:DateRange
   }
-  case class ficaTaxableincome(id:Long,amount:Double,payableTo:Long, startDate:Date,endDate:Date,eventLog:Seq[IncomeEvent] = Seq()) extends Income{
+  import scala.math.abs
+  case class ficaTaxableincome(id:Long,amount:Double,payableTo:Long, dateRange:DateRange,eventLog:Seq[IncomeEvent] = Seq()) extends Income{
     override val value = eventLog
     override def apply(src: dataset[IncomeEventGenDeps]): dataset[Income] =
     (for{
       date <- src.currentDate
-    }yield date match {
-      case _:Month|_:Week if((scala.math.abs(date.getDayOfMonth - startDate.getDayOfMonth) < date.numberOfDays))=>
-        this.copy(eventLog = taxableIncomeEvent(this.id,this.payableTo,amount,date.value) +: eventLog)
+      expandedDateRange <- (data[Date]().++(dateRange.start).++(dateRange)).<-+[DateRange]
+      possibleDate <- expandedDateRange.findClosestPeriod(src)
+    }yield {
+      if( this.isActive(date)) {
+        this.copy(eventLog = taxableIncomeEvent(this.id,this.payableTo,amount,possibleDate) +: eventLog)
+      }
+      else this
     })
+    def preceeds(date:Date):Boolean = date.isBefore(dateRange.start)
+    def halted(date:Date):Boolean = date.isAfter(dateRange.end)
+    def isActive(date:Date):Boolean = !preceeds(date) && !halted(date)
   }
 
   //defin income events
@@ -34,7 +41,6 @@ object Income {
     val payableTo:Long
     val amount:Double
     val date:LocalDate
-
   }
   case class taxableIncomeEvent(incomeId:Long,payableTo:Long,amount:Double,date:LocalDate) extends IncomeEvent{
 
@@ -47,19 +53,18 @@ object Income {
     produces[Seq[IncomeEvent]]{
     override def apply(src: dataset[IncomeEventGenDeps]): dataset[IncomeEventGenerator] = for{
       incomes <- src.incomes
-      date <- src.currentDate
     }yield {
         val toBePaidOut = incomes.value.flatMap(i => {
-         src.++(i).<-+[Income].getValue[Seq[IncomeEvent]]
+         src.++(i).<-+[Income].getOrElse[Seq[IncomeEvent]](Seq())
         })
         IncomeEventGenerator(
-          toBePaidOut//.map(i => taxableIncomeEvent(i.id,i.amount,date))
+          toBePaidOut
         )
     }
   }
 
 
-  case class Incomes(value:Seq[Income],eventLog:Seq[IncomeEvent] = Seq()) extends (Incomes ==> Incomes){
+  case class Incomes(value:Seq[Income],eventLog:Seq[IncomeEvent] = Seq()) extends (Incomes ==> Incomes) with produces[Seq[Income]]{
     override def apply(src: dataset[Incomes]): dataset[Incomes] = src.<--[Incomes]
     private def apply(income:Income):dataset[Incomes] = {
       val incomeMapCurr = this.incomeMap
@@ -79,9 +84,10 @@ object Income {
 
   implicit class IncomeGrammar[A<:Incomes](src:dataset[A])(implicit taga:TypeTag[A]){
     def incomes:dataset[Incomes] = if(src.isInstanceOf[Incomes]) src else src.<--[Incomes]
-    def events:Val[Seq[IncomeEvent]] = for{
-      incomes <- src.incomes
-    }yield Val(incomes.eventLog)
+    def events: produces[Seq[IncomeEvent]] = src.incomes
+      .biMap[produces[Seq[IncomeEvent]]](err => noVal(err.value:_*))(
+        d => someval(d.asInstanceOf[Incomes].eventLog)
+      )
   }
   implicit class IncomeDateDrivenBehavior[A<:Incomes with Date with Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def generateIncomeEvents:dataset[IncomeEventGenerator] =

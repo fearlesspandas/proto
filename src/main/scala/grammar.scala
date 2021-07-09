@@ -7,31 +7,49 @@ package object grammar {
   import dataset._
   implicit def evaluate[T](t:produces[T]):T = t.value
   implicit class evaluatorModels[A<:dataset[A] with ==>[_,A]](src:dataset[A])(implicit taga:TypeTag[A]){
-    def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
-      if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
-    else for{
-      a <- src.<--[A]
-    }yield Val(a.value)
+    def getValue[T](implicit  ev: A <:< produces[T]): produces[T] =
+      if(src == null) noVal(new Error("null Value found"))
+      else if(src.isInstanceOf[A]) ev(src.asInstanceOf[A])
+    else {
+        val a = src.<--[A]
+        a.biMap[produces[T]](
+          err => noVal(err.value:_*)
+        )(
+          d => ev(d.asInstanceOf[A])
+        )
+      }
+    def getOrElse[T](default:T)(implicit  ev: A <:< produces[T]): produces[T] = if(src == null)
+    noVal(new Error(s"null value found for ${buildId[A]}"))
+    else{
+      src.biMap[produces[T]](err => someval(default) )(d =>  d.getValue[T])
+    }
   }
   implicit class evaluatorAxioms[A<:dataset[A] with ::[A]](src:dataset[A])(implicit taga:TypeTag[A]){
-    def getValue[T](implicit  ev: A <:< produces[T]):Val[T] =
-      if(src.isInstanceOf[A]) Val(ev(src.asInstanceOf[A]).value)
-      else for{
-        a <- src.<--[A]
-      }yield Val(a.value)
+    def getValue[T](implicit  ev: A <:< produces[T]): produces[T] =
+      if(src.isInstanceOf[A]) ev(src.asInstanceOf[A])
+      else {
+        val a = src.<--[A]
+        a.biMap[produces[T]](
+          err => noVal(err.value:_*)
+        )(
+          d => ev(d.asInstanceOf[A])
+        )
+      }
   }
   implicit class MonadicDatasets[B <: dataset[B]](m: dataset[B])(implicit tagb: TypeTag[B]) {
-    def flatMap[C <: dataset[_], U](f: B => dataset[C] with U)(implicit tagC: TypeTag[C]): dataset[C] with U =
+    def get:B = m.asInstanceOf[B]
+    def flatMap[C <: dataset[_]](f: B => dataset[C])(implicit tagC: TypeTag[C]): dataset[C] =
       if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
-        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
+        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C]]
       } else
         f(m.asInstanceOf[B])
 
-    def map[C <: dataset[_],U](f: B => dataset[C] with U)(implicit tagc: TypeTag[C]): dataset[C] with U =
-      if (m.isEmpty) {
+    def map[C <: dataset[_]](f: B => dataset[C] )(implicit tagc: TypeTag[C]): dataset[C] =
+      if(m == null)DatasetError[C](new Error(s"null value found for ${buildId[B]}")).asInstanceOf[dataset[C]]
+      else if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
-        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C] with U]
+        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C]]
       } else
         f(m.asInstanceOf[B])
 
@@ -68,7 +86,9 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
       src.asInstanceOf[dataset[A with U]].multifetch[U].fold(err => err.asInstanceOf[dataset[A]])(
         uState => {
           val ufunc = uState.asInstanceOf[U]
-          if (ufunc.solved(src)) return src
+          if (ufunc.solved(src)) {
+            return src
+          }
           val thisSolution = src.-->[U]
           if(ufunc.solved(thisSolution))
             return thisSolution
@@ -81,8 +101,8 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
                 nextData
                 .filterNot(_.isEmpty)
                   .map(_.solve[U])
-                  .collect({case d if (!d.isEmpty) => d})
-                  .collectFirst({case d => d})
+                  .collectFirst({case d if (!d.isEmpty) => d})
+
               nextSolutionSet match {
                 case Some(d:dataset[A]) => d
                 case _ => DatasetError[A](new Error("No solution found"))
@@ -203,8 +223,11 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
 
   implicit class Includer[A <: dataset[_]](a: dataset[A]) {
     def ++[U <: dataset[_], T <: U](value: T)(implicit ttag: TypeTag[U], tag: TypeTag[T]): dataset[A with U with T] = {
-      if (value.isEmpty) DatasetError[A with U with T](new Error(s"value is empty for ${buildId[U]}")).append(
-        value.asInstanceOf[DatasetError[T]].value:_*)
+      if (value == null || value.isEmpty) DatasetError[A with U with T](new Error(s"value is empty for ${buildId[U]}")).append(
+        (
+          if (value != null)value.asInstanceOf[DatasetError[T]].value.toSeq
+          else Seq.empty[Error]
+        ):_*)
       else {
         val newRelations = a.relations.updated(buildIdLor[U](a.relations), buildIdLor[T](a.relations))
         val newContext = a.context.updated(buildIdLor[U](newRelations), value)

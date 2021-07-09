@@ -18,6 +18,8 @@ object Account {
   case class depositEvent(amount: Double, accountid: Long,date:LocalDate) extends AccountingEvent
   case class marketGrowthEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
   case class marketLossEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
+
+  case class AccountingEvents(value:Seq[AccountingEvent]) extends ::[AccountingEvents] with produces[Seq[AccountingEvent]]
   trait Account extends ::[Account] {
     self =>
     val balance: Double
@@ -69,21 +71,21 @@ object Account {
 
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.<--[Accounts]
-    def events:Val[Seq[AccountingEvent]] = for{
+    def events:dataset[AccountingEvents] = for{
       accounts <- src.accounts
-    }yield Val(accounts.eventLog)//Val(accounts.eventLog)
-    def underlyingAccounts:Val[Seq[Account]] = for{
+    }yield AccountingEvents(accounts.eventLog)//Val(accounts.eventLog)
+    def underlyingAccounts:produces[Seq[Account]] = (for{
       accounts <- src.accounts
-    }yield Val[Seq[Account]](accounts.value)
+    }yield accounts).getValue
     private[Account] def addEvents(events:AccountingEvent*):dataset[Accounts] = for{
       accounts <- src.accounts
     }yield accounts.addEvent(events:_*)
     def getAccount(id:Long):Option[Account] = for{
       accounts <- src.accounts.toOption
     }yield accounts.get(id)
-    def getAccountModel(id:Long):Val[Account] = (for{
-      accounts <- src.accounts
-    }yield Val(value = accounts.get(id)))
+//    def getAccountModel(id:Long):Val[Account] = (for{
+//      accounts <- src.accounts
+//    }yield Val(value = accounts.get(id)))
 
   }
 

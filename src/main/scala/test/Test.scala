@@ -22,7 +22,7 @@ object runner {
   val starterProperties = Properties(Seq(RentalProperty(1,1300)),Seq())
   val startingDate = Month(LocalDate.now())
   val incomemeta = Seq(
-    ficaTaxableincome(1,3500,1,Month(LocalDate.now()),Month(LocalDate.now().plusYears(10)))
+    ficaTaxableincome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq()))
   )
   val incomes = Incomes(incomemeta)
   type ProgramDependencies =
@@ -32,7 +32,7 @@ object runner {
       Date         with
       Incomes
 
-  val dat:dataset[ProgramDependencies] = data[Date]()
+  val dat:dataset[ProgramDependencies] = data[ProgramDependencies]()
     //define start data
     .++[Date,Month](startingDate)++
     starterAccounts              ++
@@ -46,7 +46,7 @@ object runner {
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     //run base loop
-    val res = (dat).solve[Prog]//.accounts.getValue.tail
+    val res = dat.toWeeklyCadence.solve[Prog].incomes.events
     println(res)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
@@ -73,13 +73,12 @@ object runner {
     }
 
     override def solved(src: dataset[ProgramDependencies]):Boolean =
-        src
-          .underlyingAccounts
+      (!src
+          .underlyingAccounts.isInstanceOf[noVal]) &&
+            src.underlyingAccounts
           .value
           .map(_.balance)
-          .sum > 10000000
-//          .collectFirst({case b:BokerageAccount if b.balance > 1000000 => b})
-//          .isDefined
+          .sum > 1000000
 
     override def next(src: dataset[ProgramDependencies]): Seq[dataset[_]] = Seq(
       src.runSim
