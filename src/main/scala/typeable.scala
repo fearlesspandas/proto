@@ -72,10 +72,12 @@ package object dataset {
 
   trait produces[+T]{
    val value:T
+    val exists:Boolean = true
   }
   case class someval[T](value:T) extends produces[T]
   case class noVal(errors:Error *) extends produces[Nothing]{
     override val value: Nothing = null.asInstanceOf[Nothing]
+    override val exists = false
   }
 
   trait Context
@@ -84,9 +86,9 @@ package object dataset {
    // def ifSelf:dataset[A] = if(isSelf) this else DatasetError[A](new Error(s"dataset[${buildId[A]}]"))
     private[core] val context: contexttype
     private[core] val relations:Map[idtype,idtype]
+    val isContext = false
     def isEmpty:Boolean
     def biMap[B](ifEmpty: DatasetError[A] => B)(f: dataset[A] => B): B = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
-
     def fold[B<:dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(f: dataset[A] => dataset[B]): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
     private[core] def withContext(ctx: contexttype): dataset[A]
     private[core] def withRelations(rel:Map[idtype,idtype]):dataset[A]
@@ -103,7 +105,7 @@ package object dataset {
 
   trait ==>[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
     self =>
-//    type out = output
+    //type dep = output
     override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
@@ -144,6 +146,7 @@ package object dataset {
         new data[A](ctx,this.relations)
     }
     override final def isEmpty: Boolean = false
+    override val isContext = true
     private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
 trait solveable[-A<:dataset[_]]{

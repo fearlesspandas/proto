@@ -11,76 +11,81 @@ import scala.reflect.runtime.universe.TypeTag
 
 object Property{
   //define property types
-  trait Property extends ::[Property]{
+  trait propertyEvent{
+    val propertyId:Long
+    val amount:Double
+    val date:LocalDate
+
+
+  }
+  type PropertyEventDeps = Date
+  trait Property extends (PropertyEventDeps ==> Property) with produces[Seq[propertyEvent]]{
     val id:Long
+    val dateRange:DateRange
+    def preceeds(date:Date):Boolean = date.isBefore(dateRange.start)
+    def halted(date:Date):Boolean = date.isAfter(dateRange.end)
+    def isActive(date:Date):Boolean = !preceeds(date) && !halted(date)
   }
-  case class RentalProperty(id:Long, monthlyRent:Double) extends Property
-  case class Home(id:Long,costBasis:Double,marketValue:Double)
-  //define property events
-  case class rentPaymentDue(propertyId:Long,amount:Double,date:Date) extends Event
-  case class rentPaymentPaid(propertyId:Long,amount:Double,date:LocalDate) extends Event
-  //generate rend due payments in model
-  type RentGenDeps = Properties with Date
-  case class GenerateRentDue(value:Seq[rentPaymentDue]) extends
-    (RentGenDeps ==> GenerateRentDue) with
-    produces[Seq[rentPaymentDue]]{
-    override def apply(src: dataset[RentGenDeps]): dataset[GenerateRentDue] = for{
-      properties <- src.properties
+  case class RentalProperty(id:Long, rent:Double,dateRange:DateRange,eventLog:Seq[propertyEvent] = Seq()) extends Property{
+    override val value = eventLog
+    override def apply(src: dataset[PropertyEventDeps]): dataset[Property] = for{
+      range <- dateRange.getRange
       date <- src.currentDate
-    }yield GenerateRentDue(
-         date match {
-           case w:Week if w.value.getDayOfMonth < 7 => properties.collect({
-             case r:RentalProperty => rentPaymentDue(r.id,r.monthlyRent,w)
-           })
-          case m:Month => properties.collect({
-            case r:RentalProperty => rentPaymentDue(r.id,r.monthlyRent,m)
-          })
-          case y:Year => properties.collect({
-            case r:RentalProperty => (0 to 11).foldLeft(Seq[rentPaymentDue]())(
-              (accum,n) => rentPaymentDue(r.id,r.monthlyRent,Month(y.value.plusMonths(n))) +: accum
-            )
-          }).flatten
-           case _ => Seq()
-         })
+    }yield {
+      if(isActive(date)){
+        val events = range.findClosestPeriodRange(src).map(d => rentPaymentDue(id,rent,d)) ++ eventLog
+        this.copy(eventLog = events ,dateRange = range)
+      }else this
+    }
   }
-  implicit class RentGeneratorGrammarPaymentHelper[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
-    def rentDue:dataset[GenerateRentDue] =
-      src
-      .+-(GenerateRentDue(Seq()))
-      .<-+[GenerateRentDue]
+  case class Home(id:Long,costBasis:Double,marketValue:Double,dateRange:DateRange,value:Seq[propertyEvent] = Seq()) extends Property{
+    override def apply(v1: dataset[PropertyEventDeps]): dataset[Property] = this
   }
+  //define property events
+  case class rentPaymentDue(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent
+  case class rentPaymentPaid(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent
+  //generate rend due payments in model
 
 
-  case class Properties(value:Seq[Property],eventLog:Seq[Event]) extends (Properties ==> Properties) with produces[Seq[Property]]{
+  type PropertyEventGenDeps =  Date
+  case class Properties(value:Seq[Property],eventLog:Seq[propertyEvent]) extends (PropertyEventGenDeps with Properties ==> Properties) with produces[Seq[Property]]{
     lazy val propertyMap: Map[Long,Property] = value.map(a => a.id -> a).toMap
-    override def apply(v1: dataset[Properties]): dataset[Properties] = v1.<--[Properties]
-    private def apply(account:Property):dataset[Properties] = {
+    override def apply(src: dataset[PropertyEventGenDeps with Properties]): dataset[Properties] = for{
+      properties <- src.properties
+    }yield {
+      properties.value.foldLeft(src)((accumSrc, i) => for {
+        inc <- accumSrc.++(i).<-+[Property]
+        incomes <- accumSrc.properties
+        updatedIncomes <- incomes.update(inc)
+      } yield accumSrc ++ updatedIncomes).properties
+    }
+
+    private def apply(property:Property):dataset[Properties] = {
       val pptyMap = this.propertyMap
-      val exists = pptyMap.get(account.id).isDefined
-      lazy val updatedMap = pptyMap.updated(account.id,account)
-      val newAcctColl = if(exists) updatedMap.values.toSeq else value :+ account
+      val exists = pptyMap.get(property.id).isDefined
+      lazy val updatedMap = pptyMap.updated(property.id,property)
+      val newAcctColl = if(exists) updatedMap.values.toSeq else value :+ property
       new Properties(newAcctColl,this.eventLog){
-        override lazy val propertyMap = if (pptyMap != null) updatedMap else Map(account.id -> account)
+        override lazy val propertyMap = if (pptyMap != null) updatedMap else Map(property.id -> property)
       }
     }
-    private[Property] def addEvents(events:Event*) = Properties(value,events ++ eventLog)
+    private[Property] def addEvents(events:propertyEvent*) = this.copy(eventLog = events ++ eventLog)
     def get(id:Long):dataset[Property] = propertyMap(id)
     def update(property:Property):dataset[Properties] = apply(property)
 
   }
   implicit class PropertiesAPI[A<:Properties](src:dataset[A])(implicit taga:TypeTag[A]){
     def properties:dataset[Properties] = if(src.isInstanceOf[Properties]) src else src.<--[Properties]
-    def events:produces[Seq[Event]] = src.properties.biMap[produces[Seq[Event]]](err => noVal(err.value:_*))(d => someval(d.asInstanceOf[Properties].eventLog))
-  }
-  implicit class GrowRents[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
-    def accrueRent:dataset[A] = for{
-      properties <- src.properties
-      rentdue <- src.rentDue
-    }yield src.++(
-      properties.addEvents(rentdue.value:_*)
+    def events:produces[Seq[propertyEvent]] = src.properties.biMap[produces[Seq[propertyEvent]]](err => noVal(err.value:_*))(d => someval(d.asInstanceOf[Properties].eventLog ++ d.asInstanceOf[Properties].value.flatMap(_.value)))
+    def eventsAtDate(date: Date):produces[Seq[propertyEvent]] = someval(
+      src.events.filter(e => date.isWithinPeriod(Year(e.date)))
     )
   }
+  implicit class GrowRents[A<:Properties with Date](src:dataset[A])(implicit taga:TypeTag[A]){
+    def accrueRent:dataset[A] = src.+->[Properties]
+  }
   implicit class PayRents[A<:Properties with Accounts with Date](src:dataset[A])(implicit taga:TypeTag[A]){
+
     def payRents:dataset[A] = for{
       properties <- src.properties
       accounts <- src.accounts
@@ -89,24 +94,14 @@ object Property{
         .collectFirst({case c:CheckingAccount => c})
         .asInstanceOf[Option[Account]]
         .fromOption
-      rentdue <- src.rentDue
-    }yield date match {
-      case _:Month | _:Week =>
-        val rentpaymentsdue = properties.events.collect({
-          case r:rentPaymentDue if scala.math.abs(date.getDayOfMonth() - r.date.getDayOfMonth()) < date.numberOfDays => r
-        })
-        rentdue.foldLeft(src)((accumSrc,paymentDue) =>
-          accumSrc
-          .withdraw(rentAcct,paymentDue.amount)
-            .++(
-              properties.addEvents(
-                rentPaymentPaid(paymentDue.propertyId,paymentDue.amount,date)
-              )
-            )
-        )
-      case _ => DatasetError[A](new Error("rent payments other than Monthly not implemented"))
-
-
+    }yield {
+      val rentPaymentsPaid = properties.eventsAtDate(date).collect({
+        case r:rentPaymentDue => rentPaymentPaid(r.propertyId,r.amount,r.date)
+      })
+      rentPaymentsPaid.foldLeft(src)(
+        (accumSrc,event) =>
+          accumSrc.withdraw(rentAcct,event.amount)
+      ) ++ properties.addEvents(rentPaymentsPaid:_*)
     }
   }
 

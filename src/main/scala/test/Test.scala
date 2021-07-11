@@ -19,10 +19,14 @@ object runner {
   import Income._
   println("Initializing")
   val starterAccounts = Accounts(Seq(CheckingAccount(1,30000),BokerageAccount(2,60000)),Seq())
-  val starterProperties = Properties(Seq(RentalProperty(1,1300)),Seq())
+  val rentPeriod = dates(Month(LocalDate.now()),LocalDate.now().plusYears(20))
+  val starterProperties = Properties(Seq(RentalProperty(1,1300,rentPeriod)),Seq())
   val startingDate = Month(LocalDate.now())
   val incomemeta = Seq(
-    ficaTaxableincome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq()))
+    ficaTaxableincome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
+    ficaTaxableincome(2,500,1,dates(Week(LocalDate.now().plusMonths(6)),LocalDate.now().plusYears(2),Seq())),
+    ficaTaxableincome(3,5500,1,dates(Year(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
+    ficaTaxableincome(4,1500,1,dates(Month(LocalDate.now().plusYears(1)),LocalDate.now().plusYears(10),Seq()))
   )
   val incomes = Incomes(incomemeta)
   type ProgramDependencies =
@@ -39,19 +43,19 @@ object runner {
     AccountRates(0.67,0.01,0.06) ++
     incomes                      ++
     starterProperties            +-
-    Prog()
+    Prog(1000000)
     //include the program we want to loop over
     // if we dont' want to build an implicit grammar for it
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     //run base loop
-    val res = dat.toWeeklyCadence.solve[Prog].incomes.events
+    val res = dat.toWeeklyCadence.solve[Prog].properties.events.sortWith((a,b) => a.date.isBefore(b.date))//.get.get(3).value//.events.filter(_.incomeId == 1)
     println(res)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
   }
-  case class Prog() extends (ProgramDependencies ==> ProgramDependencies) with solveable[ProgramDependencies] {
+  case class Prog(limit:Double) extends (ProgramDependencies ==> ProgramDependencies) with solveable[ProgramDependencies] {
     override def apply(src: dataset[ProgramDependencies]): dataset[ProgramDependencies] = for{
       date <- src.currentDate
     }yield{
@@ -73,12 +77,12 @@ object runner {
     }
 
     override def solved(src: dataset[ProgramDependencies]):Boolean =
-      (!src
-          .underlyingAccounts.isInstanceOf[noVal]) &&
+      (src
+          .underlyingAccounts.exists) &&
             src.underlyingAccounts
           .value
           .map(_.balance)
-          .sum > 1000000
+          .sum > limit
 
     override def next(src: dataset[ProgramDependencies]): Seq[dataset[_]] = Seq(
       src.runSim
@@ -86,7 +90,7 @@ object runner {
   }
   import scala.reflect.runtime.universe.TypeTag
   implicit class RunSim[A<:ProgramDependencies](src:dataset[A])(implicit taga:TypeTag[A]){
-    def runSim:dataset[A] = src.+-(Prog()).-->[Prog]
+    def runSim:dataset[A] = src.+-(Prog(10000000)).-->[Prog]
   }
 
 

@@ -50,8 +50,11 @@ package object grammar {
       else if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
         DatasetError[C](lasterr:_*).asInstanceOf[dataset[C]]
-      } else
-        f(m.asInstanceOf[B])
+      } else {
+        val res = f(m.asInstanceOf[B])
+        //if(res.isContext) res.multifetch[C] else res
+        res
+      }
 
   }
 
@@ -155,18 +158,18 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
             )
         })
 
-//  def runWith[U<:A ==> _,B<:U#dep](instU:U)(
-//                                                         implicit ttag: TypeTag[U],
-//                                                         tagA: TypeTag[A],
-//                                                         tagb:TypeTag[B]
-//                                                       ): dataset[A] =
-//    if (src.isEmpty) DatasetError[A]()
-//    else
-//        instU.apply(src).fold(
-//          e => DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
-//        )(
-//          b => if(b.context.isEmpty) src.++(b) else src.withContext(src.context ++ b.context)
-//        )
+  def -->[B<:dataset[_]](instU:A ==> B)(
+                                                         implicit
+                                                         tagA: TypeTag[A],
+                                                         tagb:TypeTag[B]
+                                                       ): dataset[B] =
+    if (src.isEmpty) DatasetError[B](src.asInstanceOf[DatasetError[A]].value:_*)
+    else
+        instU.apply(src).fold(
+          e => DatasetError[B](new Error(s"Failure to run ${instU.toString}")).append(e.value: _*)
+        )(
+          b => b
+        )
 
   }
 

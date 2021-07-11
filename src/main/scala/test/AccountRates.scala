@@ -12,7 +12,6 @@ object AccountRates{
             case BokerageAccount(id, balance) =>
                 val growAccounts = scala.math.random() > baseProb
                 val randomFudgeUp = scala.math.sqrt(scala.math.random())
-                val randomFudgeDown = scala.math.random()
                 if(growAccounts)
                     baseRateUp * randomFudgeUp
                 else

@@ -23,15 +23,9 @@ object Date{
     def nextPeriod:dataset[A] = src.+->[Date]
   }
 
-  sealed trait Date extends index[Date] with produces[LocalDate] with solveable [Date]{
+  sealed trait Date extends index[Date] with produces[LocalDate]{
     val periodsInYear:Int
     val numberOfDays:Int
-
-    override def next(src: dataset[Date]): Seq[dataset[_]] = Seq(
-      src.nextPeriod
-    )
-
-    override def solved(src: dataset[Date]): Boolean = ???
   }
 
   case class Day(value:LocalDate) extends Date{
@@ -86,8 +80,33 @@ object Date{
               )
               .headOption.fromOption
     }
+    def findClosestPeriodRange(src:dataset[Date]):produces[Seq[Date]] = (for{
+      date <- src.currentDate
+    }yield {
+      val withinPeriod = this
+        .filter(d => date.isWithinPeriod(d))
+        apply(withinPeriod)
+    }).getOrElse(Seq.empty[Date])
   }
-  case class dates(start:Date,end:LocalDate,value:Seq[Date]) extends DateRange {
+
+  implicit class DateRangeGrammar[A<:DateRange](src:dataset[A])(implicit taga:TypeTag[A]){
+    def dateRange:dataset[DateRange] = if(src.isInstanceOf[DateRange]) src else src.<--[DateRange]
+    def getRange:dataset[DateRange] =if(src.dateRange.getValue.exists && src.dateRange.getValue.value.size > 0)
+      src
+    else for {
+      range <- src.dateRange
+      sd <- range.start
+      expandedDateRange <- (
+        data[Date]() ++
+          sd ++
+          range
+        )
+        .<-+[DateRange]
+    }yield expandedDateRange
+  }
+
+
+  case class dates(start:Date,end:LocalDate,value:Seq[Date] = Seq()) extends DateRange {
     override def apply(newvalue: Seq[Date]): DateRange = dates(start,end,newvalue)
   }
 
