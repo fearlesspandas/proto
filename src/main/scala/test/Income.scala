@@ -11,7 +11,9 @@ object Income {
   type IncomeEventGenDeps = Incomes with Date
   type IncomeEventDeps = Date
   //define incomes
-  trait Income extends (IncomeEventDeps ==> Income) with produces[Seq[IncomeEvent]]{
+  trait Income
+    extends (IncomeEventDeps ==> Income)
+      with produces[Seq[IncomeEvent]]{
     val id:Long
     val payableTo:Long
     val amount:Double
@@ -46,7 +48,8 @@ object Income {
   case class taxableIncomeEvent(incomeId:Long,payableTo:Long,amount:Double,date:LocalDate) extends IncomeEvent
 
 
-  case class Incomes(value:Seq[Income],eventLog:Seq[IncomeEvent] = Seq()) extends (IncomeEventGenDeps ==> Incomes) with produces[Seq[Income]]{
+  case class Incomes(value:Seq[Income],eventLog:Seq[IncomeEvent] = Seq())
+    extends (IncomeEventGenDeps ==> Incomes) with produces[Seq[Income]]{
     override def apply(src: dataset[IncomeEventGenDeps]): dataset[Incomes] =  for{
       incomes <- src.incomes
     }yield {
@@ -56,6 +59,7 @@ object Income {
         updatedIncomes <- incomes.update(inc)
       }yield accumSrc ++ updatedIncomes).incomes
     }
+
     private def apply(income:Income):dataset[Incomes] = {
       val incomeMapCurr = this.incomeMap
       val exists = incomeMap.get(income.id).isDefined
