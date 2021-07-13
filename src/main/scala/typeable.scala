@@ -109,9 +109,28 @@ package object dataset {
     override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
-    private[core] override def withContext(ctx: contexttype): dataset[output] = DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
-    private[core] override val relations = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] =DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
+    private[core] override def withContext(ctx: contexttype): dataset[output] ={
+      val outerRelations = this.relations
+      val outerApply = this.apply(_)
+      new ==>[dependencies,output]{
+        override val context = ctx
+        override val relations = outerRelations
+        override def apply(v1: dataset[dependencies]): dataset[output] = outerApply(v1)
+      }
+    }
+    //DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
+    private[core] override val relations:Map[idtype,idtype] = Map()
+    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] =
+    {
+      val outerContext = this.context
+      val outerApply = this.apply(_)
+      new ==>[dependencies,output]{
+        override val context = outerContext
+        override val relations = rel
+        override def apply(v1: dataset[dependencies]): dataset[output] = outerApply(v1)
+      }
+    }
+    //DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
   }
   type model[-dep<:dataset[_],+out<:dataset[_]] = ==>[dep,out]
 

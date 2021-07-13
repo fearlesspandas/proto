@@ -191,7 +191,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         val uid = buildIdLor[U](src.relations)
         src.context.get(uid) match {
           case Some(d: U) if d != null && d.isInstanceOf[U] =>
-            apply[U](d)
+            apply[U](d) +-[U] d
           case _ if ttag.tpe =:= tagA.tpe => src
           case _ => DatasetError[U](new Error(s"No value for ${buildId[U]} found for fetch[$uid] in $src"))
         }

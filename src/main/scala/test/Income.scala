@@ -77,7 +77,9 @@ object Income {
   }
 
   implicit class IncomeGrammar[A<:Incomes](src:dataset[A])(implicit taga:TypeTag[A]){
-    def incomes:dataset[Incomes] = if(src.isInstanceOf[Incomes]) src else src.<--[Incomes]
+    def incomes:dataset[Incomes] = if(src.isInstanceOf[Incomes]) src ++ src else for{
+      inc <-  src.<--[Incomes]
+    } yield inc +- inc
     def events: produces[Seq[IncomeEvent]] = src.incomes
       .biMap[produces[Seq[IncomeEvent]]](err => noVal(err.value:_*))(
         d => someval(d.asInstanceOf[Incomes].eventLog ++ d.asInstanceOf[Incomes].value.flatMap(_.value))

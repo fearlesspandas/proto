@@ -36,7 +36,7 @@ object runner {
       date <- src.currentDate
     }yield{
       date match {
-        case _:Month| _:Week =>
+        case _:Month| _:Week | _:Day =>
           src
             .growAccounts
             .accrueRent
@@ -99,7 +99,7 @@ object runner {
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     //run solve baseLoop for solve condition
-    val res = dat.toWeeklyCadence.solve[Prog]
+    val res = dat.toDailyCadence.solve[Prog]
       .properties
       .events
       .sortWith((a,b) => a.date.isBefore(b.date))
