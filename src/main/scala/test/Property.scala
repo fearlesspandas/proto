@@ -15,8 +15,6 @@ object Property{
     val propertyId:Long
     val amount:Double
     val date:LocalDate
-
-
   }
   type PropertyEventDeps = Date
   trait Property extends (PropertyEventDeps ==> Property) with produces[Seq[propertyEvent]]{

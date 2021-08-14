@@ -112,7 +112,7 @@ object Date{
 
   object monthToDay {
     def apply(date:Date):Int = date.getMonthValue match {
-      case 1 =>31
+      case 1 => 31
       case 2 =>if(!date.isLeapYear) 28 else 29
       case 3 => 31
       case 4 => 30

@@ -1,6 +1,8 @@
-name := "Typical"
 
-version := "1.0"
+ThisBuild / organization := "org.statefreak"
+ThisBuild / version      := "1.0-SNAPSHOT"
+
+name := "typical"
 
 
 scalaVersion := "2.12.10"

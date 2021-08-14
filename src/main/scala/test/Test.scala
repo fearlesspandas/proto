@@ -74,17 +74,22 @@ object runner {
   /////////////////////////////////////////////////////////////
   ///////////Define Starting Data/////////////////////////////
   val starterAccounts = Accounts(Seq(CheckingAccount(1,30000),BokerageAccount(2,60000)),Seq())
+
   val rentPeriod = dates(Month(LocalDate.now()),LocalDate.now().plusYears(20))
+
   val starterProperties = Properties(Seq(RentalProperty(1,1300,rentPeriod)),Seq())
+
   val startingDate = Month(LocalDate.now())
+
   val incomemeta = Seq(
-    ficaTaxableincome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
-    ficaTaxableincome(2,500,1,dates(Week(LocalDate.now().plusMonths(6)),LocalDate.now().plusYears(2),Seq())),
-    ficaTaxableincome(3,5500,1,dates(Year(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
-    ficaTaxableincome(4,1500,1,dates(Month(LocalDate.now().plusYears(1)),LocalDate.now().plusYears(10),Seq()))
+    TaxableIncome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
+    TaxableIncome(2,500,1,dates(Week(LocalDate.now().plusMonths(6)),LocalDate.now().plusYears(2),Seq())),
+    TaxableIncome(3,5500,1,dates(Year(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
+    TaxableIncome(4,1500,1,dates(Month(LocalDate.now().plusYears(1)),LocalDate.now().plusYears(10),Seq()))
   )
   val incomes = Incomes(incomemeta)
-  val dat:dataset[ProgramDependencies] = data[ProgramDependencies]()
+
+  val dat:dataset[ProgramDependencies] = data[ProgramDependencies]().asInstanceOf[dataset[ProgramDependencies]]
     //include initial data
     .++[Date,Month](startingDate)++
     starterAccounts              ++
@@ -99,11 +104,19 @@ object runner {
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
     //run solve baseLoop for solve condition
-    val res = dat.toDailyCadence.solve[Prog]
-      .properties
-      .events
-      .sortWith((a,b) => a.date.isBefore(b.date))
-    println(res)
+    val res:data[ProgramDependencies] =
+      dat
+      .toWeeklyCadence
+        .solve[Prog]
+        .asInstanceOf[data[ProgramDependencies]]
+      val res2 =
+        res
+          .properties
+          .events
+          .sortWith((a,b) => a.date.isBefore(b.date))
+    println(res.context)
+     // val res2 =     (dat.incomes ++[Date,Month] Month(LocalDate.now()) ++ dat.incomes).incomes
+    //println(res2)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
   }
