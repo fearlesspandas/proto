@@ -4,7 +4,7 @@ import grammar._
 import dataset._
 import Date._
 import test.Account.{Account, BokerageAccount, CheckingAccount}
-object AccountRates{
+package object AccountRates{
     type accountRateDeps = Date
     case class AccountRates(baseRateUp:Double,baseRateDown:Double,baseProb:Double) extends ::[AccountRates] with produces[Account => Double]{
         override val value:Account => Double = _ match {

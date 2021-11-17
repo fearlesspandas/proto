@@ -69,31 +69,41 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
   implicit class UniversalDatasetOps[A <: dataset[_]](src: dataset[A]) {
     def processCtx(str:String):String = str.replaceAll("class","").replaceAll("trait","").replaceAll("object","")
     import scala.tools.reflect._
-    def compile(code: String,passedcontext:contexttype)(implicit taga:TypeTag[A]): (contexttype) => A = {
+    def compile(code: String,passedcontext:contexttype,relations:Map[idtype,idtype])(implicit taga:TypeTag[A]): (contexttype,Map[Any,Any]) => A = {
       val tb = runtimeMirror(getClass.getClassLoader).mkToolBox()
       val typeString = passedcontext.values.tail.foldLeft(passedcontext.values.head.getClass.getTypeName)((acc,k) => {
         val filteredKey = k.getClass.getTypeName
         s"$filteredKey with $acc"
       })
+      //kinda surprised this works
+      val flippedRelations = relations.map({case (k,v) => v -> k})
+      val tpst = passedcontext.keys.filterNot(_.toString.contains("object")).tail.foldLeft(processCtx(flippedRelations(passedcontext.keys.head).toString))((acc,k) => {
+        val filteredKey = processCtx(flippedRelations(k).toString)
+        //if(passedcontext(k).isSelf)
+        s"$filteredKey with $acc"
+//        else
+//          acc
+      })
+      val importString = passedcontext.values.tail.foldLeft(s"import ${passedcontext.values.head.getClass.getPackageName}._")((acc,k) => {
+        val filteredKey = k.getClass.getPackageName
+        s"import ${filteredKey}._ \n $acc"
+      })
+
       val tree = tb.parse(
         s"""
            |import Typical.core._
-           |  import Account._
-           |  import GrowAccounts._
-           |  import grammar._
-           |  import Property._
-           |  import Date._
-           |  import AccountRates._
-           |  import Income._
-           |def wrapper(context: Map[Any,Typical.core.dataset.dataset[_]]): Any = {
-           |  val src = Typical.core.dataset.data[$typeString](context,Map())
+           |  import Typical.core.grammar._
+           |  $importString
+           |  import Typical.core.dataset._
+           |def wrapper(context: Map[Any,dataset[_]],relations:Map[Any,Any]): Any = {
+           |  val src = data[$tpst](context,relations).asInstanceOf[dataset[$tpst]]
            |  $code
            |}
            |wrapper _
       """.stripMargin)
       val f = tb.compile(tree)
       val wrapper = f()
-      wrapper.asInstanceOf[contexttype => A]
+      wrapper.asInstanceOf[(contexttype,Map[Any,Any]) => A]
     }
     def console(implicit taga:TypeTag[A]):dataset[A] = {
 
@@ -110,7 +120,9 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         case "exit" => return src
         case _ if matchingDatasets.nonEmpty => println(s"--------------------------------------------------$matchingDatasets\n-------------------------------------------------------\n")
         //case _ if matchingcommands.nonEmpty => println(dat.)
-        case s => try{compile(s,src.context)(taga)(src.context)}catch{case e => println(e.getMessage)}
+        case s => try{println(
+          compile(s,src.context,src.relations)(taga)(src.context,src.relations)
+        )}catch{case e => println(e.getMessage)}
         case _ => println("unrecognized command")
 
       }
@@ -189,7 +201,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
             )
         })
 
-  def -->[B<:dataset[_]](instU:A ==> B)(
+  def --->[B<:dataset[_]](instU:A ==> B)(
                                                          implicit
                                                          tagA: TypeTag[A],
                                                          tagb:TypeTag[B]

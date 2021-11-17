@@ -7,7 +7,7 @@ import test.Account._
 import test.Date._
 
 import scala.reflect.runtime.universe.TypeTag
-object Income {
+package object Income {
   type IncomeEventGenDeps = Incomes with Date
   type IncomeEventDeps = Date
 

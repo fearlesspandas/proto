@@ -7,7 +7,7 @@ import Typical.core.grammar._
 import Date._
 
 import scala.reflect.runtime.universe.TypeTag
-object Account {
+package object Account {
 
   trait AccountingEvent extends ::[AccountingEvent]{
     val amount:Double

@@ -5,7 +5,7 @@ import java.time.LocalDate
 import Typical.core.dataset._
 import Typical.core.grammar._
 import scala.reflect.runtime.universe.TypeTag
-object Date{
+package object Date{
   implicit class DateGrammar[A<:Date](src:dataset[A])(implicit taga:TypeTag[A]) {
     def currentDate:dataset[Date] = if(src.isInstanceOf[Date]) src else src.<--[Date]
     def toYearlyCadence:dataset[A] = for{

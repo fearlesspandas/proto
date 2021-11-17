@@ -2,33 +2,26 @@ package test
 
 import java.time.LocalDate
 
-import test.SpendWildly.SpendWildly
-
 import scala.annotation.implicitNotFound
 
+package object Program{
 
-object runner {
   import Typical.core._
   import Account._
-  import GrowAccounts._
+  import AccountUtils._
   import grammar._
   import dataset._
   import Property._
   import Date._
   import AccountRates._
   import Income._
-  println("Initializing")
 
   type ProgramDependencies =
-      Accounts     with
+    Accounts     with
       AccountRates with
       Properties   with
       Date         with
       Incomes
-
-  object Testy extends Enumeration{
-    val Thing = Value
-  }
   ////////////////////////////////////
   //define our top level simulation
   case class Prog(limit:Double)
@@ -71,6 +64,26 @@ object runner {
   import scala.reflect.runtime.universe.TypeTag
   implicit class RunSim[A<:ProgramDependencies](src:dataset[A])(implicit taga:TypeTag[A]){
     def runSim:dataset[A] = src.+-(Prog(10000000)).-->[Prog]
+  }
+
+}
+object runner {
+  import Program._
+  import Typical.core._
+  import Account._
+  import grammar._
+  import dataset._
+  import Property._
+  import Date._
+  import AccountRates._
+  import Income._
+
+  println("Initializing")
+
+
+
+  object Testy extends Enumeration{
+    val Thing = Value
   }
 
   /////////////////////////////////////////////////////////////

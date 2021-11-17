@@ -9,7 +9,7 @@ import Date._
 import scala.reflect.runtime.universe.TypeTag
 
 
-object Property{
+package object Property{
   //define property types
   trait propertyEvent{
     val propertyId:Long
