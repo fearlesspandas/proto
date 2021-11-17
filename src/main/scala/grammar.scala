@@ -15,7 +15,7 @@ package object grammar {
         a.biMap[produces[T]](
           err => noVal(err.value:_*)
         )(
-          d => ev(d.asInstanceOf[A])
+          d => ev(d.get)
         )
       }
     def getOrElse[T](default:T)(implicit  ev: A <:< produces[T]): produces[T] = if(src == null)
@@ -67,23 +67,54 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
 }
 
   implicit class UniversalDatasetOps[A <: dataset[_]](src: dataset[A]) {
+    def processCtx(str:String):String = str.replaceAll("class","").replaceAll("trait","").replaceAll("object","")
+    import scala.tools.reflect._
+    def compile(code: String,passedcontext:contexttype)(implicit taga:TypeTag[A]): (contexttype) => A = {
+      val tb = runtimeMirror(getClass.getClassLoader).mkToolBox()
+      val typeString = passedcontext.values.tail.foldLeft(passedcontext.values.head.getClass.getTypeName)((acc,k) => {
+        val filteredKey = k.getClass.getTypeName
+        s"$filteredKey with $acc"
+      })
+      val tree = tb.parse(
+        s"""
+           |import Typical.core._
+           |  import Account._
+           |  import GrowAccounts._
+           |  import grammar._
+           |  import Property._
+           |  import Date._
+           |  import AccountRates._
+           |  import Income._
+           |def wrapper(context: Map[Any,Typical.core.dataset.dataset[_]]): Any = {
+           |  val src = Typical.core.dataset.data[$typeString](context,Map())
+           |  $code
+           |}
+           |wrapper _
+      """.stripMargin)
+      val f = tb.compile(tree)
+      val wrapper = f()
+      wrapper.asInstanceOf[contexttype => A]
+    }
+    def console(implicit taga:TypeTag[A]):dataset[A] = {
 
-    def console(dat:dataset[A] = src):dataset[A] = {
+
+      println(s"Welcome to console for ${taga.tpe.toString}")
       val cmd = scala.io.StdIn.readLine()
-      val matchingDatasets = dat.context.values.filter(_.toString.toUpperCase.contains(cmd.toUpperCase())).map(d => d match {
+      val matchingDatasets = src.context.values.filter(_.toString.toUpperCase.contains(cmd.toUpperCase())).map(d => d match {
         case p:produces[_] =>  s"${d.toString}\n\t${p.value.toString.take(100)}"
         case _ => d.toString
       } ).foldLeft("")(_ + "\n" + _)
       val commands = Set("iter","run","derive","fetch")
       val matchingcommands = commands.filter(_.toUpperCase == cmd.toUpperCase)
       cmd match {
-        case "exit" => return dat
+        case "exit" => return src
         case _ if matchingDatasets.nonEmpty => println(s"--------------------------------------------------$matchingDatasets\n-------------------------------------------------------\n")
         //case _ if matchingcommands.nonEmpty => println(dat.)
+        case s => try{compile(s,src.context)(taga)(src.context)}catch{case e => println(e.getMessage)}
         case _ => println("unrecognized command")
 
       }
-      console()
+      console
     }
     def solve[U<: ==>[A,A] with solveable[A]](implicit tagu:TypeTag[U],taga:TypeTag[A]):dataset[A]  = {
       src.asInstanceOf[dataset[A with U]].multifetch[U].fold(err => err.asInstanceOf[dataset[A]])(

@@ -19,28 +19,31 @@ object Account {
   case class marketGrowthEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
   case class marketLossEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingEvent
 
-  case class AccountingEvents(value:Seq[AccountingEvent]) extends ::[AccountingEvents] with produces[Seq[AccountingEvent]]
-  trait Account extends ::[Account] {
+  trait Account extends ::[Account] with produces[Seq[AccountingEvent]]{
     self =>
     val balance: Double
     val id:Long
     def apply(balance: Double): Account
-    def spend(amt:Double) = apply(balance - amt)
+    def spend(amt:Double) = if(amt > balance) throw new Error("balance of account exceeded") else apply(balance - amt)
     def deposit(amt:Double) = apply(balance + amt)
+    def addEvents(events:AccountingEvent*):Account
   }
 
 
 
-  case class CheckingAccount(id:Long,balance: Double) extends Account {
-    override def apply(newbalance: Double): CheckingAccount = CheckingAccount(id,newbalance)
+  case class CheckingAccount(id:Long,balance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
+    override def apply(newbalance: Double): CheckingAccount = this.copy(balance = newbalance)
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ this.value)
   }
 
-  case class BokerageAccount(id:Long,balance: Double) extends Account {
-    override def apply(balance: Double): BokerageAccount = BokerageAccount(id,balance)
+  case class BokerageAccount(id:Long,balance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
+    override def apply(newbalance: Double): BokerageAccount = this.copy(balance = newbalance)
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ this.value)
   }
 
-  case class IRA(id:Long,balance: Double) extends Account {
-    override def apply(balance: Double): IRA = IRA(id,balance)
+  case class IRA(id:Long,balance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
+    override def apply(balance: Double): IRA = this.copy(balance = balance)
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ this.value)
   }
 
 
@@ -61,7 +64,12 @@ object Account {
         lazy val accountMap = if (acctMap != null) updatedMap else Map(account.id -> account)
       }
     }
-    private[Account] def addEvent(events:AccountingEvent*):dataset[Accounts] = new Accounts(this.value,events ++ this.eventLog)
+    private[Account] def addEvent(events:AccountingEvent*):dataset[Accounts] = {
+      events.foldLeft(this)((accumaccts,e) => {
+        val acct = accumaccts.get(e.accountid)
+        accumaccts.update(acct.addEvents(e)).get
+      })
+    }
     private lazy val accountMap:Map[Long,Account] = value.map(a => a.id -> a).toMap
 
     def get(id:Long):Account = accountMap(id)
@@ -71,9 +79,7 @@ object Account {
 
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.<--[Accounts]
-    def events:dataset[AccountingEvents] = for{
-      accounts <- src.accounts
-    }yield AccountingEvents(accounts.eventLog)//Val(accounts.eventLog)
+    def events:produces[Seq[AccountingEvent]] = src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value:_*))(d => someval(d.get.eventLog ++ d.get.value.flatMap(_.value)))
     def underlyingAccounts:produces[Seq[Account]] = (for{
       accounts <- src.accounts
     }yield accounts).getValue
@@ -83,9 +89,6 @@ object Account {
     def getAccount(id:Long):Option[Account] = for{
       accounts <- src.accounts.toOption
     }yield accounts.get(id)
-//    def getAccountModel(id:Long):Val[Account] = (for{
-//      accounts <- src.accounts
-//    }yield Val(value = accounts.get(id)))
 
   }
 

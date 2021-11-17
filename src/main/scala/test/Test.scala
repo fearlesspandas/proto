@@ -26,7 +26,9 @@ object runner {
       Date         with
       Incomes
 
-
+  object Testy extends Enumeration{
+    val Thing = Value
+  }
   ////////////////////////////////////
   //define our top level simulation
   case class Prog(limit:Double)
@@ -82,10 +84,10 @@ object runner {
   val startingDate = Month(LocalDate.now())
 
   val incomemeta = Seq(
-    TaxableIncome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
-    TaxableIncome(2,500,1,dates(Week(LocalDate.now().plusMonths(6)),LocalDate.now().plusYears(2),Seq())),
-    TaxableIncome(3,5500,1,dates(Year(LocalDate.now()),LocalDate.now().plusYears(10),Seq())),
-    TaxableIncome(4,1500,1,dates(Month(LocalDate.now().plusYears(1)),LocalDate.now().plusYears(10),Seq()))
+    TaxableIncome(1,3500,1,dates(Month(LocalDate.now()),LocalDate.now().plusYears(10))),
+    TaxableIncome(2,500,1,dates(Week(LocalDate.now().plusMonths(6)),LocalDate.now().plusYears(2))),
+    TaxableIncome(3,5500,1,dates(Year(LocalDate.now()),LocalDate.now().plusYears(10))),
+    TaxableIncome(4,1500,1,dates(Month(LocalDate.now().plusYears(1)),LocalDate.now().plusYears(10)))
   )
   val incomes = Incomes(incomemeta)
 
@@ -111,12 +113,13 @@ object runner {
         .asInstanceOf[data[ProgramDependencies]]
       val res2 =
         res
-          .properties
+          .accounts
           .events
           .sortWith((a,b) => a.date.isBefore(b.date))
     println(res.context)
-     // val res2 =     (dat.incomes ++[Date,Month] Month(LocalDate.now()) ++ dat.incomes).incomes
-    //println(res2)
+    res.console
+     // val res3 = (dat.incomes ++[Date,Month] Month(LocalDate.now()) ++ dat.incomes).incomes
+    println(res2)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
   }

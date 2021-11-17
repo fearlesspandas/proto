@@ -9,6 +9,11 @@ scalaVersion := "2.12.10"
 
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
 
+// https://mvnrepository.com/artifact/org.scala-lang/scala-reflect
+// https://mvnrepository.com/artifact/org.scala-lang/scala-reflect
+libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
+
+
 initialCommands in console := """
                                 |import Typical.core.dataset._
                                 |import Typical.core.grammar._

@@ -8,14 +8,14 @@ object AccountRates{
     type accountRateDeps = Date
     case class AccountRates(baseRateUp:Double,baseRateDown:Double,baseProb:Double) extends ::[AccountRates] with produces[Account => Double]{
         override val value:Account => Double = _ match {
-            case CheckingAccount(id, balance) => 0
-            case BokerageAccount(id, balance) =>
+            case CheckingAccount(id, balance,_) => 0
+            case BokerageAccount(id, balance,_) =>
                 val growAccounts = scala.math.random() > baseProb
-                val randomFudgeUp = scala.math.sqrt(scala.math.random())
+                val randomFudge = scala.math.sqrt(scala.math.random())
                 if(growAccounts)
-                    baseRateUp * randomFudgeUp
+                    baseRateUp * randomFudge
                 else
-                    -1 * baseRateDown * randomFudgeUp
+                    -1 * baseRateDown * randomFudge
         }
     }
 }

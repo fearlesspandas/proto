@@ -20,6 +20,7 @@ object Property{
   trait Property extends (PropertyEventDeps ==> Property) with produces[Seq[propertyEvent]]{
     val id:Long
     val dateRange:DateRange
+    def addEvents(events:propertyEvent*):Property
     def preceeds(date:Date):Boolean = date.isBefore(dateRange.start)
     def halted(date:Date):Boolean = date.isAfter(dateRange.end)
     def isActive(date:Date):Boolean = !preceeds(date) && !halted(date)
@@ -27,17 +28,20 @@ object Property{
   case class RentalProperty(id:Long, rent:Double,dateRange:DateRange,eventLog:Seq[propertyEvent] = Seq()) extends Property{
     override val value = eventLog
     override def apply(src: dataset[PropertyEventDeps]): dataset[Property] = for{
-      range <- dateRange.getRange
       date <- src.currentDate
     }yield {
       if(isActive(date)){
-        val events = range.findClosestPeriodRange(src).map(d => rentPaymentDue(id,rent,d)) ++ eventLog
-        this.copy(eventLog = events ,dateRange = range)
+        val events = dateRange.findClosestPeriodRange(src).map(d => rentPaymentDue(id,rent,d)) ++ eventLog
+        this.copy(eventLog = events)
       }else this
     }
+
+    override def addEvents(events: propertyEvent*): Property = this.copy(eventLog = events ++ this.eventLog)
   }
   case class Home(id:Long,costBasis:Double,marketValue:Double,dateRange:DateRange,value:Seq[propertyEvent] = Seq()) extends Property{
     override def apply(v1: dataset[PropertyEventDeps]): dataset[Property] = this
+
+    override def addEvents(events: propertyEvent*): Property = this.copy(value = events ++ this.value)
   }
   //define property events
   case class rentPaymentDue(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent
@@ -51,11 +55,11 @@ object Property{
     override def apply(src: dataset[PropertyEventGenDeps with Properties]): dataset[Properties] = for{
       properties <- src.properties
     }yield {
-      properties.value.foldLeft(src)((accumSrc, i) => for {
-        inc <- accumSrc.++(i).<-+[Property]
-        incomes <- accumSrc.properties
-        updatedIncomes <- incomes.update(inc)
-      } yield accumSrc ++ updatedIncomes).properties
+      properties.value.foldLeft(src)((accumSrc, p) => for {
+        prop <- accumSrc.++(p).<-+[Property]
+        accumProps <- accumSrc.properties
+        updatedProps <- accumProps.update(prop)
+      } yield accumSrc ++ updatedProps).properties
     }
 
     private def apply(property:Property):dataset[Properties] = {
@@ -67,14 +71,21 @@ object Property{
         override lazy val propertyMap = if (pptyMap != null) updatedMap else Map(property.id -> property)
       }
     }
-    private[Property] def addEvents(events:propertyEvent*) = this.copy(eventLog = events ++ eventLog)
+    private[Property] def addEvents(events:propertyEvent*) = {
+      events.foldLeft(this)((accumprops,e) => {
+        val prop = accumprops.get(e.propertyId)
+        val updatedProp = prop.get.addEvents(e)
+        accumprops.apply(updatedProp).get
+      })
+      //this.copy(eventLog = events ++ eventLog)
+    }
     def get(id:Long):dataset[Property] = propertyMap(id)
     def update(property:Property):dataset[Properties] = apply(property)
 
   }
   implicit class PropertiesAPI[A<:Properties](src:dataset[A])(implicit taga:TypeTag[A]){
     def properties:dataset[Properties] = if(src.isInstanceOf[Properties]) src else src.<--[Properties]
-    def events:produces[Seq[propertyEvent]] = src.properties.biMap[produces[Seq[propertyEvent]]](err => noVal(err.value:_*))(d => someval(d.asInstanceOf[Properties].eventLog ++ d.asInstanceOf[Properties].value.flatMap(_.value)))
+    def events:produces[Seq[propertyEvent]] = src.properties.biMap[produces[Seq[propertyEvent]]](err => noVal(err.value:_*))(d => someval(d.get.eventLog ++ d.get.value.flatMap(_.value)))
     def eventsAtDate(date: Date):produces[Seq[propertyEvent]] = someval(
       src.events.filter(e => date.isWithinPeriod(Year(e.date)))
     )

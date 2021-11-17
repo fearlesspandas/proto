@@ -91,7 +91,8 @@ object Date{
 
   implicit class DateRangeGrammar[A<:DateRange](src:dataset[A])(implicit taga:TypeTag[A]){
     def dateRange:dataset[DateRange] = if(src.isInstanceOf[DateRange]) src else src.<--[DateRange]
-    def getRange:dataset[DateRange] =if(src.dateRange.getValue.exists && src.dateRange.getValue.value.size > 0)
+    def getRange:dataset[DateRange] =
+      if(src.dateRange.getValue.exists && src.dateRange.getValue.value.nonEmpty)
       src
     else for {
       range <- src.dateRange
@@ -105,11 +106,12 @@ object Date{
     }yield expandedDateRange
   }
 
-
-  case class dates(start:Date,end:LocalDate,value:Seq[Date] = Seq()) extends DateRange {
-    override def apply(newvalue: Seq[Date]): DateRange = dates(start,end,newvalue)
+   class dates(val start:Date,val end:LocalDate,val value:Seq[Date] = Seq()) extends DateRange {
+    override def apply(newvalue: Seq[Date]): DateRange = new dates(start,end,newvalue)
   }
-
+  object dates{
+    def apply(start:Date,end:LocalDate):DateRange = new dates(start,end).getRange.get
+  }
   object monthToDay {
     def apply(date:Date):Int = date.getMonthValue match {
       case 1 => 31
@@ -127,13 +129,39 @@ object Date{
     }
   }
   implicit class TimeHandler(src:Date){
-
+    //src is our context which includes a current date with a frequency/cadence
+    //date is a date with bounds (defined by the cadence)
+    // here we test if src is within the bounds of date with respect to their relative cadences
     def isWithinPeriod(date:Date):Boolean = src match {
+        //if src/context is daily, recursively check src year is within date year, and check if they're on the same day exactly
       case _:Day => Year(src.value).isWithinPeriod(date) && date.getDayOfYear == src.getDayOfYear
+        //if src/context is weekly, recursively check src and date are within the same month, then check if there within a week of eachother
       case _:Week => Month(src.value).isWithinPeriod(date) && (src.getDayOfYear - date.getDayOfYear) < 7 && (src.getDayOfYear - date.getDayOfYear >= 0)
+        //if src/context is monthly, recursively check if they're within the same year, then check if they're in the same month
       case _:Month => Year(src.value).isWithinPeriod(date) && src.getMonth == date.getMonth
+        //if src/context is yearly, check if years match
       case _:Year =>  src.getYear == date.getYear
     }
+
+    /*
+    example 1
+    src:dataset[Day](Day(01-01-2021)) i.e. src iterates on a daily cadence
+    date:Year(03-07-2021) i.e. a yearly event on 03-07-2021
+
+    src.currentDate.isWithinPeriod(date) -> false
+
+    but if we iterate src.nextPeriod until src.currentDate = Day(03-07-2021)
+    then src.currentDate.isWithinPeriod(date) -> true
+
+    example 2
+    src:dataset[Year](Year(01-01-2021) i.e. iterates on a yearly cadence
+    date:Day(03-07-2021) i.e. a daily event on 03-07-2021
+
+    in this case we have
+    src.currentDate.isWithinPeriod(date) -> true
+    because relative to src's frequency, date will occur before src's next iteration
+
+     */
   }
 
 }
