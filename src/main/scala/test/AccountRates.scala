@@ -9,7 +9,7 @@ package object AccountRates{
     case class AccountRates(baseRateUp:Double,baseRateDown:Double,baseProb:Double) extends ::[AccountRates] with produces[Account => Double]{
         override val value:Account => Double = _ match {
             case CheckingAccount(id, balance,_) => 0
-            case BokerageAccount(id, balance,_) =>
+            case BokerageAccount(id, balance,_,_) =>
                 val growAccounts = scala.math.random() > baseProb
                 val randomFudge = scala.math.sqrt(scala.math.random())
                 if(growAccounts)

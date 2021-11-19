@@ -102,6 +102,7 @@ package object Income {
     )
   }
   implicit class IncomeDateDrivenBehavior[A<:Incomes with Date with Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
+
     def receiveIncomes:dataset[A] = for{
       date <- src.currentDate
       accounts <- src.accounts

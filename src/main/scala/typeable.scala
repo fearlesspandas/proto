@@ -40,33 +40,8 @@ package object dataset {
     val c2 = cm.reflectConstructor(c1)
     c2.apply().asInstanceOf[A]
   }
-  private[core] def idLess(a:idtype,b:idtype):Boolean = {
-    val baseA = removeSpecialChars(a.toString.split("with")).toSet
-    val baseB = removeSpecialChars(b.toString.split("with")).toSet
-    //val diff = baseB.diff(baseA)
-    baseA.subsetOf(baseB)
-  }
- private[core] def idcomb(a:idtype,b:idtype):idtype = a.toString + b.toString
-  private[core] def removeSpecialChars(st:Seq[String]):Seq[String] = st.map(
-    _
-      .replaceAll(".package","")
-      .replaceAll("<","")
-      .replaceAll(">","")
-      .replaceAll(" ","")
-  )
-  private[core] def buildInferred[A](implicit create: (TypeTag[A]) => A, a: TypeTag[A]): A = {
-    create(a)
-  }
 
 
-
-  private[core] abstract class  Id[+A <: dataset[_]](implicit tag:TypeTag[A]) {
-    val baseId = buildId[A]
-  }
-
-  private[core] trait InitialType[-T <: dataset[_]] {
-    val terminalValue: dataset[_ >: T <: dataset[_]] = null
-  }
   private[core] def apply[A<:dataset[_]](a:A):dataset[A] = a.asInstanceOf[dataset[A]]
 
 
@@ -74,16 +49,16 @@ package object dataset {
    val value:T
     val exists:Boolean = true
   }
+
   case class someval[T](value:T) extends produces[T]
+
   case class noVal(errors:Error *) extends produces[Nothing]{
     override val value: Nothing = null.asInstanceOf[Nothing]
     override val exists = false
   }
 
-  trait Context
   sealed trait dataset[+A <: dataset[_]] {
     val isSelf = this.isInstanceOf[A]
-   // def ifSelf:dataset[A] = if(isSelf) this else DatasetError[A](new Error(s"dataset[${buildId[A]}]"))
     private[core] val context: contexttype
     private[core] val relations:Map[idtype,idtype]
     val isContext = false
@@ -105,33 +80,14 @@ package object dataset {
 
   trait ==>[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
     self =>
-    //type dep = output
     override def toString = this.getClass.getTypeName
     override final def isEmpty: Boolean = false
     private[core] override val context: contexttype = Map()
     private[core] override def withContext(ctx: contexttype): dataset[output] =
-//    {
-//      val outerRelations = this.relations
-//      val outerApply = this.apply(_)
-//      new ==>[dependencies,output]{
-//        override val context = ctx
-//        override val relations = outerRelations
-//        override def apply(v1: dataset[dependencies]): dataset[output] = outerApply(v1)
-//      }
-//    }
-    DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
+      DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
     private[core] override val relations:Map[idtype,idtype] = Map()
     private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] =
-//    {
-//      val outerContext = this.context
-//      val outerApply = this.apply(_)
-//      new ==>[dependencies,output]{
-//        override val context = outerContext
-//        override val relations = rel
-//        override def apply(v1: dataset[dependencies]): dataset[output] = outerApply(v1)
-//      }
-//    }
-    DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
+      DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
   }
   type model[-dep<:dataset[_],+out<:dataset[_]] = ==>[dep,out]
 
@@ -139,7 +95,6 @@ package object dataset {
     def apply():dataset[self]
     override def apply(src:dataset[self]):dataset[self] = apply()
   }
-
 
   case class Val[T](value:T) extends ::[Val[_]] with produces[T]
 
@@ -170,21 +125,9 @@ package object dataset {
     override val isContext = true
     private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
-trait solveable[-A<:dataset[_]]{
-  def solved(src:dataset[A]):Boolean
-  def next(src:dataset[A]):Seq[dataset[_]]
-}
 
-
-//  case class Context[A<:dataset[A]](f:idtype => dataset[A]){
-//    def ++(g:idtype => dataset[A]):Context[A] = {
-//      val composableF = (id:idtype) => f(id).fold(_ => g(id))(x => x)
-//      Context(composableF)
-//    }
-//    def get(id:idtype):dataset[A] = f(id)
-//    def updated(id:idtype,data:dataset[A]):Context[A] = {
-//      val newF = (idIn:idtype) => if(idIn == id) data else f(id)
-//      Context(newF)
-//    }
-//  }
+  trait solveable[-A<:dataset[_]]{
+    def solved(src:dataset[A]):Boolean
+    def next(src:dataset[A]):Seq[dataset[_]]
+  }
 }

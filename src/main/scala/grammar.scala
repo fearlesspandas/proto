@@ -114,8 +114,6 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         case p:produces[_] =>  s"${d.toString}\n\t${p.value.toString.take(100)}"
         case _ => d.toString
       } ).foldLeft("")(_ + "\n" + _)
-      val commands = Set("iter","run","derive","fetch")
-      val matchingcommands = commands.filter(_.toUpperCase == cmd.toUpperCase)
       cmd match {
         case "exit" => return src
         case _ if matchingDatasets.nonEmpty => println(s"--------------------------------------------------$matchingDatasets\n-------------------------------------------------------\n")

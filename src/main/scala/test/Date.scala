@@ -7,27 +7,33 @@ import Typical.core.grammar._
 import scala.reflect.runtime.universe.TypeTag
 package object Date{
   implicit class DateGrammar[A<:Date](src:dataset[A])(implicit taga:TypeTag[A]) {
+
     def currentDate:dataset[Date] = if(src.isInstanceOf[Date]) src else src.<--[Date]
+
     def toYearlyCadence:dataset[A] = for{
       date <- src.currentDate
     }yield src.++[Date,Year](Year(date))
+
     def toMonthlyCadence:dataset[A] = for{
       date <- src.currentDate
     }yield src.++[Date,Month](Month(date))
+
     def toWeeklyCadence:dataset[A] = for{
       date <- src.currentDate
     }yield src.++[Date,Week](Week(date))
+
     def toDailyCadence:dataset[A] = for{
       date <- src.currentDate
     }yield src.++[Date,Day](Day(date))
+
     def nextPeriod:dataset[A] = src.+->[Date]
   }
-
+  //index is a model of type self ===> self
   sealed trait Date extends index[Date] with produces[LocalDate]{
     val periodsInYear:Int
     val numberOfDays:Int
   }
-
+  //each subtype defines how their respective index would be updated
   case class Day(value:LocalDate) extends Date{
     override def apply(): dataset[Date] = Day(value.plusDays(1))
     override val periodsInYear: Int = if(!value.isLeapYear)365 else 366
@@ -60,7 +66,7 @@ package object Date{
       date <- src.currentDate
     }yield  date match{
       case d if (d.isBefore(end)) => for{
-        nextSeq <- (src).nextPeriod.<-+[DateRange]
+        nextSeq <- (src).nextPeriod.<-+[DateRange] //we could alternatively recursively call apply(src.nextPeriod) here as that is what <-+[DateRange] reduces to in this case; in theory however this might be 'slightly' better given that it still allows us to completely abstract away the definition of apply for date range, giving us potential for heirarrchies
       }yield
         apply(
           date +: nextSeq
@@ -91,7 +97,7 @@ package object Date{
 
   implicit class DateRangeGrammar[A<:DateRange](src:dataset[A])(implicit taga:TypeTag[A]){
     def dateRange:dataset[DateRange] = if(src.isInstanceOf[DateRange]) src else src.<--[DateRange]
-    def getRange:dataset[DateRange] =
+    private[Date] def getRange:dataset[DateRange] =
       if(src.dateRange.getValue.exists && src.dateRange.getValue.value.nonEmpty)
       src
     else for {

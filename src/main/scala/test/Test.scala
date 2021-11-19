@@ -88,7 +88,7 @@ object runner {
 
   /////////////////////////////////////////////////////////////
   ///////////Define Starting Data/////////////////////////////
-  val starterAccounts = Accounts(Seq(CheckingAccount(1,30000),BokerageAccount(2,60000)),Seq())
+  val starterAccounts = Accounts(Seq(CheckingAccount(1,30000),BokerageAccount(2,60000)))
 
   val rentPeriod = dates(Month(LocalDate.now()),LocalDate.now().plusYears(20))
 
