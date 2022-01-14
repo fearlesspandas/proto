@@ -17,7 +17,7 @@ package object AccountUtils{
       val res = accounts.value.foldLeft(src)(
         (accountsAccum,acct) => acct match {
           case b:BokerageAccount =>
-            val amt = b.balance * rates(acct)/date.periodsInYear
+            val amt = b.balance * rates(b)/date.periodsInYear
             if (amt == 0)
               accountsAccum
             else if(amt > 0)

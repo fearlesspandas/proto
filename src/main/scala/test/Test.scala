@@ -55,8 +55,8 @@ package object Program{
           .map(_.balance)
           .sum > limit
 
-    override def next(src: dataset[ProgramDependencies]): Seq[dataset[_]] = Seq(
-      src.runSim
+    override def next(src: dataset[ProgramDependencies]): Seq[dataset[ProgramDependencies]] = Seq(
+      src.-->[Prog]
     )
   }
   ////////////////////////////////
@@ -115,6 +115,17 @@ object runner {
     // if we dont' want to build an implicit grammar for it
     Prog(1000000)
 
+  trait thinggg[+A]
+  class thingy extends thinggg[Int with String]
+  //(new thingy).asInstanceOf[Int with Double]
+  //trait Entity
+
+  trait Person
+  trait Trust
+  trait Other
+  trait Household
+  trait Joint
+  trait Owner
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
@@ -124,17 +135,10 @@ object runner {
       .toWeeklyCadence
         .solve[Prog]
         .asInstanceOf[data[ProgramDependencies]]
-      val res2 =
-        res
-          .accounts
-          .events
-          .sortWith((a,b) => a.date.isBefore(b.date))
     println(res.context)
-    res.console
-     // val res3 = (dat.incomes ++[Date,Month] Month(LocalDate.now()) ++ dat.incomes).incomes
-    println(res2)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
+    res.console
   }
 
 

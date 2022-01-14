@@ -29,28 +29,29 @@ package object Income {
     val payableTo:Long
     val amount:Double
     val dateRange:DateRange
-    def addEvents(events:IncomeEvent*):Income
-  }
-  case class TaxableIncome(id:Long, amount:Double, payableTo:Long, dateRange:DateRange, eventLog:Seq[IncomeEvent] = Seq()) extends Income{
-    override val value = eventLog
-    override def apply(src: dataset[IncomeEventDeps]): dataset[Income] =
-    (for{
-      date <- src.currentDate
-    }yield {
-      //this check is for performance not consistency
-      //as if we're not in the active range we should
-      //just see an empty range returned.
-      if( this.isActive(date)) {
-        val pr = dateRange.findClosestPeriodRange(src)
-        val res = pr.map(d => taxableIncomeEvent(this.id,this.payableTo,amount,d))
-        this.copy(eventLog = res ++ eventLog)
-      }
-      else this
-    })
     def preceeds(date:Date):Boolean = date.isBefore(dateRange.start)
     def halted(date:Date):Boolean = date.isAfter(dateRange.end)
     def isActive(date:Date):Boolean = !preceeds(date) && !halted(date)
 
+    def addEvents(events:IncomeEvent*):Income
+
+  }
+  case class TaxableIncome(id:Long, amount:Double, payableTo:Long, dateRange:DateRange, eventLog:Seq[IncomeEvent] = Seq()) extends Income{
+    override val value = eventLog
+    def apply(src: dataset[IncomeEventDeps]): dataset[Income] =
+      (for{
+        date <- src.currentDate
+      }yield {
+        //this check is for performance not consistency
+        //as if we're not in the active range we should
+        //just see an empty range returned.
+        if( this.isActive(date)) {
+          val pr = dateRange.findClosestPeriodRange(src)
+          val res = pr.map(d => taxableIncomeEvent(this.id,this.payableTo,amount,d))
+          addEvents(res:_*)
+        }
+        else this
+      })
     override def addEvents(events: IncomeEvent*): Income = this.copy(eventLog = events ++ this.eventLog)
   }
 
@@ -93,13 +94,13 @@ package object Income {
     def incomes:dataset[Incomes] = if(src.isInstanceOf[Incomes]) src else for{
       inc <-  src.<--[Incomes]
     } yield inc
-    def events: produces[Seq[IncomeEvent]] = src.incomes
-      .biMap[produces[Seq[IncomeEvent]]](err => noVal(err.value:_*))(
-        d => someval(d.get.eventLog ++ d.get.value.flatMap(_.value))
+    def events: Seq[IncomeEvent] = src.incomes
+      .biMap[Seq[IncomeEvent]](err => Seq())(
+        d => d.get.eventLog ++ d.get.value.flatMap(_.value)
       )
-    def eventsAtDate(date: Date):produces[Seq[IncomeEvent]] = someval(
+    def eventsAtDate(date: Date):Seq[IncomeEvent] = //someval(
       src.events.filter(e => date.isWithinPeriod(Year(e.date)))
-    )
+    //)
   }
   implicit class IncomeDateDrivenBehavior[A<:Incomes with Date with Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
 

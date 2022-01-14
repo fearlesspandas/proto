@@ -95,7 +95,7 @@ package object dataset {
     def apply():dataset[self]
     override def apply(src:dataset[self]):dataset[self] = apply()
   }
-
+  trait C[X<:dataset[_],Y<:dataset[_],A<:(X ==> Y)] extends dataset[Y with C[X,Y,A]]
   case class Val[T](value:T) extends ::[Val[_]] with produces[T]
 
   case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
@@ -126,8 +126,8 @@ package object dataset {
     private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
   }
 
-  trait solveable[-A<:dataset[_]]{
+  trait solveable[A<:dataset[_]]{
     def solved(src:dataset[A]):Boolean
-    def next(src:dataset[A]):Seq[dataset[_]]
+    def next(src:dataset[A]):Seq[dataset[A]]
   }
 }

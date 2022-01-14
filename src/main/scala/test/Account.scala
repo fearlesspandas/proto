@@ -50,63 +50,44 @@ package object Account {
   }
   implicit class AccountAPI[A<:Account](src:dataset[A])(implicit taga:TypeTag[A]){
     def account:dataset[Account] = if(src.isInstanceOf[Account]) src else src.<--[Account]
-    def balanceField:dataset[BalanceField] = for{
-      bf <- (src +- BalanceField(0d)).<-+[BalanceField]
-    }yield bf
   }
-  implicit class datedFields[A<:Account with Date](src:dataset[A])(implicit taga:TypeTag[A]){
 
-  }
-  case class BalanceField(value:Double) extends (Account ==> BalanceField) with produces[Double]{
-    override def apply(src: dataset[Account]): dataset[BalanceField] = for{
-      acct <- src.account
-    } yield{
-      BalanceField(acct.value.collect({case b:AccountingBalanceEvent => b}).net)
-    }
-  }
+
+
+
   //define your fields and field operations
   trait Balance extends Account{
-    lazy val balance:Double = this.balanceField.get
+    val initialBalance:Double
+    //could be replaced by a def but this way we can save some compute on multiple calls within the same context
+    lazy val balance:Double = this.value.collect({case b:AccountingBalanceEvent => b}).net + initialBalance
     def spend(amt:Double,date:Date) = if(amt > balance) throw new Error("balance of account exceeded") else this.addEvents(spendEvent(amt,this.id,date))
     def deposit(amt:Double,date:Date) = this.addEvents(depositEvent(amt,this.id,date))
   }
-  implicit def balanceField(a:Account):Balance= a match {
+  implicit def balanceFieldconverter(a:Account):Balance= a match {
     case b:Balance => b
     case _ => throw new Error(s"Balance not applicable for ${a.toString}")
   }
 
   trait CostBasis extends Account{
-    val costBasis:Double
+    lazy val costBasis:Double = this.value.collect({case cb:AccountingCostBasisEvent => cb}).net + initialCostBasis
+    val initialCostBasis:Double
   }
   implicit def costBasisField(a:Account):CostBasis = a match {
     case c:CostBasis => c
     case _ => throw new Error(s"Cost Basis not applicable for ${a.toString}")
   }
 
-  case class CheckingAccount(id:Long,balance: Double,value:Seq[AccountingEvent] = Seq()) extends Account with Balance{
-    override def addEvents(events: AccountingEvent*): Account = {
-      val amt = events.collect({case e:AccountingBalanceEvent => e}).net
-      this.copy(value = events ++ this.value,balance = this.balance + amt)
-    }
+  case class CheckingAccount(id:Long,initialBalance:Double,value:Seq[AccountingEvent] = Seq()) extends Account with Balance{
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
   }
 
-  case class BokerageAccount(id:Long,balance: Double,costBasis:Double = 0d,value:Seq[AccountingEvent] = Seq()) extends Account with CostBasis with Balance{
-    override def addEvents(events: AccountingEvent*): Account = {
-      val amt = events.collect({case e:AccountingBalanceEvent => e}).net
-      val costBasisDiff = events.collect({case c:AccountingCostBasisEvent => c}).net
-      this.copy(value = events ++ this.value,balance = this.balance + amt,costBasis = this.costBasis + costBasisDiff)
-    }
+  case class BokerageAccount(id:Long,initialBalance:Double,initialCostBasis:Double = 0d,value:Seq[AccountingEvent] = Seq()) extends Account with CostBasis with Balance{
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
   }
 
-  case class IRA(id:Long,balance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
-    override def addEvents(events: AccountingEvent*): Account = {
-      val amt = events.collect({case e:AccountingBalanceEvent => e}).net
-      this.copy(value = events ++ this.value,balance = this.balance + amt)
-    }
+  case class IRA(id:Long,initialBalance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
+    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
   }
-
-
-
 
   //this class illustrates how you would define an operation generally over
   //a dataset or anything contained within it.
@@ -118,7 +99,7 @@ package object Account {
       val acctMap = this.accountMap
       val exists = acctMap.get(account.id).isDefined
       lazy val updatedMap = acctMap.updated(account.id,account)
-      val newAcctColl = if(exists) updatedMap.values.toSeq else value :+ account
+      val newAcctColl = if(exists) updatedMap.values.toSeq else value.toSeq :+ account
       new Accounts(newAcctColl){
         lazy val accountMap = if (acctMap != null) updatedMap else Map(account.id -> account)
       }
@@ -126,8 +107,8 @@ package object Account {
     private[Account] def addEvent(events:AccountingEvent*):dataset[Accounts] = {
       events.foldLeft(this)((accumaccts,e) => {
         val acct = accumaccts.get(e.accountid)
-        accumaccts.update(acct.addEvents(e)).get
-      })
+        accumaccts.update(acct.addEvents(e))
+      }.get)
     }
     private lazy val accountMap:Map[Long,Account] = value.map(a => a.id -> a).toMap
 
@@ -139,10 +120,10 @@ package object Account {
   implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
     def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.<--[Accounts]
     def events:produces[Seq[AccountingEvent]] = src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value:_*))(d => someval(d.get.value.flatMap(_.value)))
-    def underlyingAccounts:produces[Seq[Account]] = (for{
+    def underlyingAccounts:produces[Seq[Account]] = someval((for{
       accounts <- src.accounts
-    }yield accounts).getValue
-    private[Account] def addEvents(events:AccountingEvent*):dataset[Accounts] = for{
+    }yield accounts).getValue.value.toSeq)
+    def addEvents(events:AccountingEvent*):dataset[Accounts] = for{
       accounts <- src.accounts
     }yield accounts.addEvent(events:_*)
     def getAccount(id:Long):Option[Account] = for{

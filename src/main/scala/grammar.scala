@@ -41,7 +41,7 @@ package object grammar {
     def flatMap[C <: dataset[_]](f: B => dataset[C])(implicit tagC: TypeTag[C]): dataset[C] =
       if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
-        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C]]
+        DatasetError[C](new Error(s"failure to map over ${buildId[B]}") +: lasterr :_*).asInstanceOf[dataset[C]]
       } else
         f(m.asInstanceOf[B])
 
@@ -49,7 +49,7 @@ package object grammar {
       if(m == null)DatasetError[C](new Error(s"null value found for ${buildId[B]}")).asInstanceOf[dataset[C]]
       else if (m.isEmpty) {
         val lasterr = m.asInstanceOf[DatasetError[B]].value
-        DatasetError[C](lasterr:_*).asInstanceOf[dataset[C]]
+        DatasetError[C](new Error(s"failure to map over ${buildId[B]}") +: lasterr:_*).asInstanceOf[dataset[C]]
       } else {
         val res = f(m.asInstanceOf[B])
         //if(res.isContext) res.multifetch[C] else res
@@ -69,22 +69,16 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
   implicit class UniversalDatasetOps[A <: dataset[_]](src: dataset[A]) {
     def processCtx(str:String):String = str.replaceAll("class","").replaceAll("trait","").replaceAll("object","")
     import scala.tools.reflect._
-    def compile(code: String,passedcontext:contexttype,relations:Map[idtype,idtype])(implicit taga:TypeTag[A]): (contexttype,Map[Any,Any]) => A = {
+    def compile(code: String):  Any = {
       val tb = runtimeMirror(getClass.getClassLoader).mkToolBox()
-      val typeString = passedcontext.values.tail.foldLeft(passedcontext.values.head.getClass.getTypeName)((acc,k) => {
-        val filteredKey = k.getClass.getTypeName
-        s"$filteredKey with $acc"
-      })
       //kinda surprised this works
-      val flippedRelations = relations.map({case (k,v) => v -> k})
-      val tpst = passedcontext.keys.filterNot(_.toString.contains("object")).tail.foldLeft(processCtx(flippedRelations(passedcontext.keys.head).toString))((acc,k) => {
+      val flippedRelations = src.relations.map({case (k,v) => v -> k})
+      val tpst = src.context.keys.filterNot(_.toString.contains("object")).tail.foldLeft(processCtx(flippedRelations(src.context.keys.head).toString))((acc,k) => {
         val filteredKey = processCtx(flippedRelations(k).toString)
         //if(passedcontext(k).isSelf)
         s"$filteredKey with $acc"
-//        else
-//          acc
       })
-      val importString = passedcontext.values.tail.foldLeft(s"import ${passedcontext.values.head.getClass.getPackageName}._")((acc,k) => {
+      val importString = src.context.values.tail.foldLeft(s"import ${src.context.values.head.getClass.getPackageName}._")((acc,k) => {
         val filteredKey = k.getClass.getPackageName
         s"import ${filteredKey}._ \n $acc"
       })
@@ -103,7 +97,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
       """.stripMargin)
       val f = tb.compile(tree)
       val wrapper = f()
-      wrapper.asInstanceOf[(contexttype,Map[Any,Any]) => A]
+      wrapper.asInstanceOf[(contexttype,Map[Any,Any]) => Any](src.context,src.relations)
     }
     def console(implicit taga:TypeTag[A]):dataset[A] = {
 
@@ -119,7 +113,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
         case _ if matchingDatasets.nonEmpty => println(s"--------------------------------------------------$matchingDatasets\n-------------------------------------------------------\n")
         //case _ if matchingcommands.nonEmpty => println(dat.)
         case s => try{println(
-          compile(s,src.context,src.relations)(taga)(src.context,src.relations)
+          compile(s)
         )}catch{case e => println(e.getMessage)}
         case _ => println("unrecognized command")
 
@@ -216,7 +210,7 @@ implicit class toOption[A<:dataset[A]](src:dataset[A]){
 
 
   implicit class Fetcher[A <: dataset[_]](src: dataset[A]) {
-    require(src.isContext,s"${src.toString} is not a valid context")
+    require(src.isContext,s"${src.asInstanceOf[DatasetError[_]].value} is not a valid context")
     def <--[U >: A <: dataset[U]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
       src.multifetch[U]
 

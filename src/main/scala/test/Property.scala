@@ -6,13 +6,16 @@ import Typical.core.grammar._
 import Account._
 import EventHandler._
 import Date._
+import test.Expense.Expense
+
 import scala.reflect.runtime.universe.TypeTag
 
 
 package object Property{
   //define property types
-  trait propertyEvent{
+  trait propertyEvent {
     val propertyId:Long
+    val id = propertyId
     val amount:Double
     val date:LocalDate
   }
@@ -31,8 +34,8 @@ package object Property{
       date <- src.currentDate
     }yield {
       if(isActive(date)){
-        val events = dateRange.findClosestPeriodRange(src).map(d => rentPaymentDue(id,rent,d)) ++ eventLog
-        this.copy(eventLog = events)
+        val events = dateRange.findClosestPeriodRange(src).map(d => rentPaymentDue(id,rent,d))
+        this.addEvents(events:_*)
       }else this
     }
 
@@ -44,7 +47,7 @@ package object Property{
     override def addEvents(events: propertyEvent*): Property = this.copy(value = events ++ this.value)
   }
   //define property events
-  case class rentPaymentDue(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent
+  case class rentPaymentDue(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent with Expense
   case class rentPaymentPaid(propertyId:Long,amount:Double,date:LocalDate) extends propertyEvent
   //generate rend due payments in model
 
@@ -102,7 +105,7 @@ package object Property{
       rentAcct <- accounts
         .collectFirst({case c:CheckingAccount => c})
         .asInstanceOf[Option[Account]]
-        .fromOption
+        .fromOption.fold(err => DatasetError[Account](new Error("No Rent account found") +: err.value :_*))(d => d)
     }yield {
       val rentPaymentsPaid = properties.eventsAtDate(date).collect({
         case r:rentPaymentDue => rentPaymentPaid(r.propertyId,r.amount,r.date)
