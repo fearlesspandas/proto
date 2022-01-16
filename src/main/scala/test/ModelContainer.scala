@@ -90,12 +90,14 @@ trait ModelContainer[deps <: dataset[_], A <: (deps with self ==> A) with Identi
 trait EventBased[E, +self <: dataset[self]] {
   def addEvent(events: E*): dataset[self]
 }
-
-trait EventBasedElement[E, deps <: dataset[_], self <: EventBasedElement[E, deps, self]]
-    extends (deps ==> self)
-    with produces[Seq[E]]
+trait EventLog[E, +self <: dataset[self]]
+    extends produces[Seq[E]]
     with Identifiable
     with EventBased[E, self]
+
+trait ModelEventLog[E, deps <: dataset[_], self <: ModelEventLog[E, deps, self]]
+    extends (deps ==> self)
+    with EventLog[E, self]
 
 trait EventBasedModelContainer[E <: Identifiable, deps <: dataset[_], A <: (deps ==> A) with Identifiable with EventBased[
   E,

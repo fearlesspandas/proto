@@ -21,7 +21,7 @@ package object Income {
   }
 
 //define incomes
-  trait Income extends EventBasedElement[IncomeEvent, IncomeEventDeps, Income] {
+  trait Income extends ModelEventLog[IncomeEvent, IncomeEventDeps, Income] {
     val id: Long
     val payableTo: Long
     val amount: Double
@@ -65,7 +65,7 @@ package object Income {
   case class Incomes(value: Seq[Income], eventLog: Seq[IncomeEvent] = Seq())(
     implicit val taga: TypeTag[Income],
     val tagself: TypeTag[Income.Incomes],
-    val tagdeps:TypeTag[IncomeEventGenDeps]
+    val tagdeps: TypeTag[IncomeEventGenDeps]
   ) extends EventBasedModelContainer[IncomeEvent, IncomeEventGenDeps, Income, Incomes] {
     override def apply(coll: Map[Long, Income]): dataset[Incomes] = new Incomes(coll.values.toSeq)
   }

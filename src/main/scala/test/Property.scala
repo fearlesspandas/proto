@@ -11,7 +11,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 package object Property {
 
-type PropertyEventDeps = Date
+  type PropertyEventDeps = Date
   type PropertyEventGenDeps = Date
 
 //define property types
@@ -22,24 +22,20 @@ type PropertyEventDeps = Date
     val date: LocalDate
   }
 
-trait Property
-      extends (PropertyEventDeps ==> Property)
-      with EventBased[propertyEvent, Property]
-      with Identifiable
-      with produces[Seq[propertyEvent]] {
+  trait Property extends ModelEventLog[propertyEvent, PropertyEventDeps, Property] {
     val id: Long
     val dateRange: DateRange
     val eventLog: Seq[propertyEvent]
     val value = eventLog
 
-  def isActive(date: Date): Boolean = !preceeds(date) && !halted(date)
+    def isActive(date: Date): Boolean = !preceeds(date) && !halted(date)
 
-  def preceeds(date: Date): Boolean = date.isBefore(dateRange.start)
+    def preceeds(date: Date): Boolean = date.isBefore(dateRange.start)
 
-  def halted(date: Date): Boolean = date.isAfter(dateRange.end)
+    def halted(date: Date): Boolean = date.isAfter(dateRange.end)
   }
 
-case class RentalProperty(
+  case class RentalProperty(
     id: Long,
     rent: Double,
     dateRange: DateRange,
@@ -59,7 +55,7 @@ case class RentalProperty(
       this.copy(eventLog = events ++ this.eventLog)
   }
 
-case class Home(
+  case class Home(
     id: Long,
     costBasis: Double,
     marketValue: Double,
@@ -81,7 +77,7 @@ case class Home(
   case class rentPaymentPaid(propertyId: Long, amount: Double, date: LocalDate)
       extends propertyEvent
 
-case class Properties(value: Seq[Property])(
+  case class Properties(value: Seq[Property])(
     implicit val tagself: TypeTag[Properties],
     val taga: TypeTag[Property],
     val tagdeps: TypeTag[PropertyEventDeps with Properties]

@@ -1,13 +1,15 @@
 package Typical.core;
 
-
-import scala.reflect.runtime.universe.{TypeTag,typeTag,runtimeMirror,typeOf,termNames}
-import grammar._
+import scala.reflect.runtime.universe.TypeTag
+import scala.reflect.runtime.universe.runtimeMirror
+import scala.reflect.runtime.universe.termNames
+import scala.reflect.runtime.universe.typeOf
+import scala.reflect.runtime.universe.typeTag
 package object dataset {
+  type axiom[A <: ::[A]] = ::[A]
+  type model[-dep <: dataset[_], +out <: dataset[_]] = ==>[dep, out]
   private[core] type contexttype = Map[idtype, dataset[_]]
-
   private[core] type idtype = Any
-
 
   def getTypeTag[T: TypeTag](obj: T) = typeTag[T]
 
@@ -19,16 +21,21 @@ package object dataset {
 
   private[core] def buildId[A: TypeTag]: idtype = typeTag[A].tpe.typeSymbol.toString()
 
-  private[core] def buildIdLor[A: TypeTag](rel:Map[idtype,idtype], next:Option[idtype] = None,curr:Option[idtype] = None): idtype = next match {
-    case _ if rel.isEmpty => buildId[A]
+  private[core] def buildIdLor[A: TypeTag](
+    rel: Map[idtype, idtype],
+    next: Option[idtype] = None,
+    curr: Option[idtype] = None
+  ): idtype = next match {
+    case _ if rel.isEmpty               => buildId[A]
     case Some(n) if curr.exists(_ == n) => n
-    case Some(n) => buildIdLor[A](rel,rel.get(n),Some(n))
-    case None => curr match {
-      case Some(c) => c
-      case None =>
-        val base = buildId[A]
-        buildIdLor(rel,rel.get(base),Some(base))
-    }
+    case Some(n)                        => buildIdLor[A](rel, rel.get(n), Some(n))
+    case None =>
+      curr match {
+        case Some(c) => c
+        case None =>
+          val base = buildId[A]
+          buildIdLor(rel, rel.get(base), Some(base))
+      }
   }
 
   // can build an instance that from type info alone that does not take arguments
@@ -41,93 +48,116 @@ package object dataset {
     c2.apply().asInstanceOf[A]
   }
 
+  private[core] def apply[A <: dataset[_]](a: A): dataset[A] = a.asInstanceOf[dataset[A]]
 
-  private[core] def apply[A<:dataset[_]](a:A):dataset[A] = a.asInstanceOf[dataset[A]]
+  sealed trait dataset[+A <: dataset[_]] {
+    val isSelf = this.isInstanceOf[A]
+    val isContext = false
+    private[core] val context: contexttype
+    private[core] val relations: Map[idtype, idtype]
 
-
-  trait produces[+T]{
-   val value:T
-    val exists:Boolean = true
+    def isEmpty: Boolean
+    def biMap[B](ifEmpty: DatasetError[A] => B)(f: dataset[A] => B): B =
+      if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
+    def fold[B <: dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(
+      f: dataset[A] => dataset[B]
+    ): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
+    private[core] def withContext(ctx: contexttype): dataset[A]
+    private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A]
   }
 
-  case class someval[T](value:T) extends produces[T]
+  trait produces[+T] {
+    val value: T
+    val exists: Boolean = true
+  }
 
-  case class noVal(errors:Error *) extends produces[Nothing]{
+  trait ::[+A <: ::[A]] extends dataset[A] {
+    override private[core] val context: contexttype = Map()
+    override private[core] val relations = Map()
+
+    final override def isEmpty = false
+
+    override private[core] def withContext(ctx: contexttype): dataset[A] =
+      DatasetError[A](new Error(s"No withContext method available for ${this.toString}"))
+
+    override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A] =
+      DatasetError[A](new Error(s"No withRelations method available for ${this.toString}"))
+  }
+
+  trait ==>[-dependencies <: dataset[_], +output <: dataset[_]]
+      extends dataset[output]
+      with Function[dataset[dependencies], dataset[output]] {
+    self =>
+    override private[core] val context: contexttype = Map()
+    override private[core] val relations: Map[idtype, idtype] = Map()
+
+    final override def isEmpty: Boolean = false
+
+    override private[core] def withContext(ctx: contexttype): dataset[output] =
+      DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
+
+    override def toString = this.getClass.getTypeName
+
+    override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[output] =
+      DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
+  }
+
+  trait index[self <: dataset[_]] extends (self ==> self) {
+    def apply(): dataset[self]
+    override def apply(src: dataset[self]): dataset[self] = apply()
+  }
+
+  trait C[X <: dataset[_], Y <: dataset[_], A <: (X ==> Y)] extends dataset[Y with C[X, Y, A]]
+
+  trait solveable[A <: dataset[_]] {
+    def solved(src: dataset[A]): Boolean
+    def next(src: dataset[A]): Seq[dataset[A]]
+  }
+
+  case class someval[T](value: T) extends produces[T]
+
+  case class noVal(errors: Error*) extends produces[Nothing] {
     override val value: Nothing = null.asInstanceOf[Nothing]
     override val exists = false
   }
 
-  sealed trait dataset[+A <: dataset[_]] {
-    val isSelf = this.isInstanceOf[A]
-    private[core] val context: contexttype
-    private[core] val relations:Map[idtype,idtype]
-    val isContext = false
-    def isEmpty:Boolean
-    def biMap[B](ifEmpty: DatasetError[A] => B)(f: dataset[A] => B): B = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
-    def fold[B<:dataset[_]](ifEmpty: DatasetError[A] => dataset[B])(f: dataset[A] => dataset[B]): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
-    private[core] def withContext(ctx: contexttype): dataset[A]
-    private[core] def withRelations(rel:Map[idtype,idtype]):dataset[A]
-  }
+  case class Val[T](value: T) extends ::[Val[_]] with produces[T]
 
-  trait ::[+A <: ::[A]] extends dataset[A] {
-    private[core] override val context: contexttype = Map()
-    override final def isEmpty = false
-    private[core] override def withContext(ctx: contexttype): dataset[A] = DatasetError[A](new Error(s"No withContext method available for ${this.toString}"))
-    private[core] override val relations = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[A] = DatasetError[A](new Error(s"No withRelations method available for ${this.toString}"))
-  }
-  type axiom[A<: ::[A]] = ::[A]
-
-  trait ==>[-dependencies <: dataset[_], +output <: dataset[_]] extends dataset[output] with Function[dataset[dependencies],dataset[output]] {
-    self =>
-    override def toString = this.getClass.getTypeName
-    override final def isEmpty: Boolean = false
-    private[core] override val context: contexttype = Map()
-    private[core] override def withContext(ctx: contexttype): dataset[output] =
-      DatasetError[output](new Error(s"No withContext method available for ${this.toString}"))
-    private[core] override val relations:Map[idtype,idtype] = Map()
-    private[core] override def withRelations(rel:Map[idtype,idtype]):dataset[output] =
-      DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
-  }
-  type model[-dep<:dataset[_],+out<:dataset[_]] = ==>[dep,out]
-
-  trait index[ self <: dataset[_]] extends (self ==> self) {
-    def apply():dataset[self]
-    override def apply(src:dataset[self]):dataset[self] = apply()
-  }
-  trait C[X<:dataset[_],Y<:dataset[_],A<:(X ==> Y)] extends dataset[Y with C[X,Y,A]]
-  case class Val[T](value:T) extends ::[Val[_]] with produces[T]
-
-  case class DatasetError[+A<:dataset[_]](value:Error*) extends dataset[A] {
-    private[core] override val context:contexttype = Map()
-    private[core] override val relations: Map[idtype, idtype] = Map()
-    override final def isEmpty: Boolean = true
-    private[core] override def withContext(ctx: contexttype): dataset[A ] = new DatasetError[A](this.value:_*){
-      override val context = ctx
-    }
-    private[core] def append(newvalue:Error *):DatasetError[A] = new DatasetError[A]( newvalue ++ this.value :_*  )
-    private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = new  DatasetError[A](this.value:_*){
-      override val relations = rel
-    }
-  }
-
-  case class data[A <: dataset[_]](override val context: contexttype = Map(),relations:Map[idtype,idtype] = Map()) extends dataset[A] with produces [contexttype]{
-    override val value = context
-    private[core] override def withContext(ctx: contexttype): dataset[A] = {
-      val relationsHasErr = ctx.values.exists(_.isInstanceOf[DatasetError[_]])
-      if(relationsHasErr) {
-        DatasetError[A]()
+  case class DatasetError[+A <: dataset[_]](value: Error*) extends dataset[A] {
+    override private[core] val context: contexttype = Map()
+    override private[core] val relations: Map[idtype, idtype] = Map()
+    final override def isEmpty: Boolean = true
+    override private[core] def withContext(ctx: contexttype): dataset[A] =
+      new DatasetError[A](this.value: _*) {
+        override val context = ctx
       }
-      else
-        new data[A](ctx,this.relations)
-    }
-    override final def isEmpty: Boolean = false
-    override val isContext = true
-    private[core] override def withRelations(rel: Map[idtype, idtype]): dataset[A] = data(this.context,rel)
+    private[core] def append(newvalue: Error*): DatasetError[A] =
+      new DatasetError[A](newvalue ++ this.value: _*)
+    override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A] =
+      new DatasetError[A](this.value: _*) {
+        override val relations = rel
+      }
   }
 
-  trait solveable[A<:dataset[_]]{
-    def solved(src:dataset[A]):Boolean
-    def next(src:dataset[A]):Seq[dataset[A]]
+  case class data[A <: dataset[_]](
+    override val context: contexttype = Map(),
+    relations: Map[idtype, idtype] = Map()
+  ) extends dataset[A]
+      with produces[contexttype] {
+    override val value = context
+    override val isContext = true
+
+    final override def isEmpty: Boolean = false
+
+    override private[core] def withContext(ctx: contexttype): dataset[A] = {
+      val relationsHasErr = ctx.values.exists(_.isInstanceOf[DatasetError[_]])
+      if (relationsHasErr) {
+        DatasetError[A]()
+      } else
+        new data[A](ctx, this.relations)
+    }
+
+    override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A] =
+      data(this.context, rel)
   }
 }

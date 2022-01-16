@@ -43,18 +43,23 @@ package object Account {
 
   trait AccountingCostBasisEvent extends AccountingEvent
 
-  trait Account
-      extends ::[Account]
-      with produces[Seq[AccountingEvent]]
-      with EventBased[AccountingEvent, Account]
-      with Identifiable
-
+  trait Account extends ::[Account] with EventLog[AccountingEvent, Account]
+  implicit class AccountGrammer[A <: dataset[Account]](src: dataset[A])(implicit taga: TypeTag[A]) {
+    def events: produces[Seq[AccountingEvent]] =
+      src.account.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
+        someval(d.get.value)
+      )
+    def eventsAtDate(date:Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
+    def account: dataset[Account] =
+      if (src.isInstanceOf[Account]) src.asInstanceOf[Account] else src.<--[Account]
+  }
 //define your fields and field operations
   trait Balance extends Account {
     //could be replaced by a def but this way we can save some compute on multiple calls within the same context
     lazy val balance: Double = this.value
       .collect({ case b: AccountingBalanceEvent => b })
       .net + initialBalance
+
     val initialBalance: Double
 
     def spend(amt: Double, date: Date) =
@@ -133,7 +138,7 @@ package object Account {
       src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
         someval(d.get.value.flatMap(_.value))
       )
-
+    def eventsAtDate(date:Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
     def underlyingAccounts: produces[Seq[Account]] =
       someval((for {
         accounts <- src.accounts
@@ -144,12 +149,12 @@ package object Account {
         accounts <- src.accounts
       } yield accounts.addEvent(events: _*)
 
-    def accounts: dataset[Accounts] = if (src.isInstanceOf[A]) src else src.<--[Accounts]
-
     def getAccount(id: Long): Option[Account] =
       for {
         accounts <- src.accounts.toOption
       } yield accounts.get(id)
+
+    def accounts: dataset[Accounts] = if (src.isInstanceOf[A]) src else src.<--[Accounts]
 
   }
   implicit class LederOperations[A <: Accounts with Date](src: dataset[A])(
