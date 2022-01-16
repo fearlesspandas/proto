@@ -4,157 +4,185 @@ import java.time.LocalDate
 
 import Typical.core.dataset._
 import Typical.core.grammar._
-import Date._
+import test.Containers.EventBasedBasicContainer
+import test.Date._
 
 import scala.reflect.runtime.universe.TypeTag
 package object Account {
 
-  implicit class NetBalance(events:Seq[AccountingBalanceEvent]){
-    def net:Double = events.foldLeft(0d)((sum,e) => sum + (e match {
-      case spendEvent(amt,_,_) => -amt
-      case depositEvent(amt,_,_) => amt
-      case marketGrowthEvent(amt,_,_) => amt
-      case marketLossEvent(amt,_,_) => amt
-      case _ => 0d
-    }))
+  implicit class NetBalance(events: Seq[AccountingBalanceEvent]) {
+    def net: Double =
+      events.foldLeft(0d)((sum, e) =>
+        sum + (e match {
+          case spendEvent(amt, _, _)        => -amt
+          case depositEvent(amt, _, _)      => amt
+          case marketGrowthEvent(amt, _, _) => amt
+          case marketLossEvent(amt, _, _)   => amt
+          case _                            => 0d
+        })
+      )
   }
-  implicit class NetCostBasis(events:Seq[AccountingCostBasisEvent]){
-    def net:Double = events.foldLeft(0d)((sum,e) => sum + (e match {
-      case increaseCostBasisEvent(amount,_,_) => amount
-      case decreaseCostBasisEvent(amount,_,_) => -amount
-      case _ => 0d
-    }))
+  implicit class NetCostBasis(events: Seq[AccountingCostBasisEvent]) {
+    def net: Double =
+      events.foldLeft(0d)((sum, e) =>
+        sum + (e match {
+          case increaseCostBasisEvent(amount, _, _) => amount
+          case decreaseCostBasisEvent(amount, _, _) => -amount
+          case _                                    => 0d
+        })
+      )
   }
 
-  trait AccountingEvent extends ::[AccountingEvent]{
-    val amount:Double
-    val accountid:Long
-    val date:LocalDate
+  trait AccountingEvent extends ::[AccountingEvent] with Identifiable {
+    val amount: Double
+    val accountid: Long
+    val id = accountid
+    val date: LocalDate
   }
   trait AccountingBalanceEvent extends AccountingEvent
 
-  case class spendEvent(amount: Double, accountid: Long,date:LocalDate) extends AccountingBalanceEvent
-  case class depositEvent(amount: Double, accountid: Long,date:LocalDate) extends AccountingBalanceEvent
-  case class marketGrowthEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingBalanceEvent
-  case class marketLossEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingBalanceEvent
-
   trait AccountingCostBasisEvent extends AccountingEvent
 
-  case class increaseCostBasisEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingCostBasisEvent
-  case class decreaseCostBasisEvent(amount:Double,accountid:Long,date:LocalDate) extends AccountingCostBasisEvent
+  trait Account
+      extends ::[Account]
+      with produces[Seq[AccountingEvent]]
+      with EventBased[AccountingEvent, Account]
+      with Identifiable
 
-  trait Account extends ::[Account] with produces[Seq[AccountingEvent]]{
-    self =>
-    val id:Long
-    def addEvents(events:AccountingEvent*):Account
-  }
-  implicit class AccountAPI[A<:Account](src:dataset[A])(implicit taga:TypeTag[A]){
-    def account:dataset[Account] = if(src.isInstanceOf[Account]) src else src.<--[Account]
-  }
-
-
-
-
-  //define your fields and field operations
-  trait Balance extends Account{
-    val initialBalance:Double
+//define your fields and field operations
+  trait Balance extends Account {
     //could be replaced by a def but this way we can save some compute on multiple calls within the same context
-    lazy val balance:Double = this.value.collect({case b:AccountingBalanceEvent => b}).net + initialBalance
-    def spend(amt:Double,date:Date) = if(amt > balance) throw new Error("balance of account exceeded") else this.addEvents(spendEvent(amt,this.id,date))
-    def deposit(amt:Double,date:Date) = this.addEvents(depositEvent(amt,this.id,date))
-  }
-  implicit def balanceFieldconverter(a:Account):Balance= a match {
-    case b:Balance => b
-    case _ => throw new Error(s"Balance not applicable for ${a.toString}")
-  }
+    lazy val balance: Double = this.value
+      .collect({ case b: AccountingBalanceEvent => b })
+      .net + initialBalance
+    val initialBalance: Double
 
-  trait CostBasis extends Account{
-    lazy val costBasis:Double = this.value.collect({case cb:AccountingCostBasisEvent => cb}).net + initialCostBasis
-    val initialCostBasis:Double
-  }
-  implicit def costBasisField(a:Account):CostBasis = a match {
-    case c:CostBasis => c
-    case _ => throw new Error(s"Cost Basis not applicable for ${a.toString}")
+    def spend(amt: Double, date: Date) =
+      if (amt > balance) throw new Error("balance of account exceeded")
+      else this.addEvent(spendEvent(amt, this.id, date))
+    def deposit(amt: Double, date: Date) = this.addEvent(depositEvent(amt, this.id, date))
   }
 
-  case class CheckingAccount(id:Long,initialBalance:Double,value:Seq[AccountingEvent] = Seq()) extends Account with Balance{
-    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
+  trait CostBasis extends Account {
+    lazy val costBasis: Double = this.value
+      .collect({ case cb: AccountingCostBasisEvent => cb })
+      .net + initialCostBasis
+    val initialCostBasis: Double
+  }
+  case class spendEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingBalanceEvent
+  case class depositEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingBalanceEvent
+
+  case class marketGrowthEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingBalanceEvent
+  case class marketLossEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingBalanceEvent
+
+  implicit class AccountAPI[A <: Account](src: dataset[A])(implicit taga: TypeTag[A]) {
+    def account: dataset[Account] = if (src.isInstanceOf[Account]) src else src.<--[Account]
   }
 
-  case class BokerageAccount(id:Long,initialBalance:Double,initialCostBasis:Double = 0d,value:Seq[AccountingEvent] = Seq()) extends Account with CostBasis with Balance{
-    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
+  case class increaseCostBasisEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingCostBasisEvent
+  implicit def balanceFieldconverter(a: Account): Balance = a match {
+    case b: Balance => b
+    case _          => throw new Error(s"Balance not applicable for ${a.toString}")
   }
 
-  case class IRA(id:Long,initialBalance: Double,value:Seq[AccountingEvent] = Seq()) extends Account {
-    override def addEvents(events: AccountingEvent*): Account = this.copy(value = events ++ value)
+  case class decreaseCostBasisEvent(amount: Double, accountid: Long, date: LocalDate)
+      extends AccountingCostBasisEvent
+
+  implicit def costBasisField(a: Account): CostBasis = a match {
+    case c: CostBasis => c
+    case _            => throw new Error(s"Cost Basis not applicable for ${a.toString}")
   }
 
-  //this class illustrates how you would define an operation generally over
-  //a dataset or anything contained within it.
-
-
-  case class Accounts(val value: Seq[Account]) extends (Accounts ==> Accounts) with produces[Seq[Account]] {
-    override def apply(src: dataset[Accounts]): dataset[Accounts] = src.<--[Accounts]
-    private def apply(account:Account):dataset[Accounts] = {
-      val acctMap = this.accountMap
-      val exists = acctMap.get(account.id).isDefined
-      lazy val updatedMap = acctMap.updated(account.id,account)
-      val newAcctColl = if(exists) updatedMap.values.toSeq else value.toSeq :+ account
-      new Accounts(newAcctColl){
-        lazy val accountMap = if (acctMap != null) updatedMap else Map(account.id -> account)
-      }
-    }
-    private[Account] def addEvent(events:AccountingEvent*):dataset[Accounts] = {
-      events.foldLeft(this)((accumaccts,e) => {
-        val acct = accumaccts.get(e.accountid)
-        accumaccts.update(acct.addEvents(e))
-      }.get)
-    }
-    private lazy val accountMap:Map[Long,Account] = value.map(a => a.id -> a).toMap
-
-    def get(id:Long):Account = accountMap(id)
-    def update(acct:Account):dataset[Accounts] = apply(acct)
-
+  case class CheckingAccount(id: Long, initialBalance: Double, value: Seq[AccountingEvent] = Seq())
+      extends Account
+      with Balance {
+    def addEvent(events: AccountingEvent*): dataset[Account] = this.copy(value = events ++ value)
   }
 
-  implicit class AccountsAPI[A<:Accounts](src:dataset[A])(implicit taga:TypeTag[A]){
-    def accounts:dataset[Accounts] = if(src.isInstanceOf[A]) src else src.<--[Accounts]
-    def events:produces[Seq[AccountingEvent]] = src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value:_*))(d => someval(d.get.value.flatMap(_.value)))
-    def underlyingAccounts:produces[Seq[Account]] = someval((for{
-      accounts <- src.accounts
-    }yield accounts).getValue.value.toSeq)
-    def addEvents(events:AccountingEvent*):dataset[Accounts] = for{
-      accounts <- src.accounts
-    }yield accounts.addEvent(events:_*)
-    def getAccount(id:Long):Option[Account] = for{
-      accounts <- src.accounts.toOption
-    }yield accounts.get(id)
-
-  }
-  implicit class LederOperations[A<:Accounts with Date](src:dataset[A])(implicit taga:TypeTag[A]){
-    def withdraw(account:Balance, amt:Double):dataset[A] = for{
-      accounts <- src.accounts
-      date <- src.currentDate
-      res <- accounts.update(accounts.get(account.id).spend(amt,date))
-    }yield src ++ res
-    def deposit(account:Balance,amt:Double):dataset[A] = for{
-      accounts <- src.accounts
-      date <- src.currentDate
-      res <- accounts.update(accounts.get(account.id).deposit(amt,date))
-    }yield src ++ res
-    def recordMarketGrowth(account:BokerageAccount,amt:Double):dataset[A] = for{
-      accounts <- src.accounts
-      date <- src.currentDate
-      res <- accounts.addEvents(marketGrowthEvent(amt,account.id,date))
-    }yield src ++ res
-    def recordMarketLoss(account:BokerageAccount,amt:Double):dataset[A] = for{
-      accounts <- src.accounts
-      date <- src.currentDate
-      res <- accounts
-        .addEvents(marketLossEvent(amt,account.id,date))
-    }yield src ++ res
-
+  case class BokerageAccount(
+    id: Long,
+    initialBalance: Double,
+    initialCostBasis: Double = 0d,
+    value: Seq[AccountingEvent] = Seq()
+  ) extends Account
+      with CostBasis
+      with Balance {
+    def addEvent(events: AccountingEvent*): dataset[Account] = this.copy(value = events ++ value)
   }
 
+  case class IRA(id: Long, initialBalance: Double, value: Seq[AccountingEvent] = Seq())
+      extends Account {
+    def addEvent(events: AccountingEvent*): dataset[Account] = this.copy(value = events ++ value)
+  }
+
+  //define collection container for collections of accounts
+  case class Accounts(val value: Seq[Account])(
+    implicit val taga: TypeTag[Account],
+    val tagself: TypeTag[Accounts]
+  ) extends EventBasedBasicContainer[AccountingEvent, Account, Accounts] {
+    override def apply(coll: Map[Long, Account]): dataset[Accounts] = Accounts(coll.values.toSeq)
+  }
+
+  implicit class AccountsAPI[A <: Accounts](src: dataset[A])(implicit taga: TypeTag[A]) {
+    def events: produces[Seq[AccountingEvent]] =
+      src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
+        someval(d.get.value.flatMap(_.value))
+      )
+
+    def underlyingAccounts: produces[Seq[Account]] =
+      someval((for {
+        accounts <- src.accounts
+      } yield accounts).getValue.value.toSeq)
+
+    def addEvents(events: AccountingEvent*): dataset[Accounts] =
+      for {
+        accounts <- src.accounts
+      } yield accounts.addEvent(events: _*)
+
+    def accounts: dataset[Accounts] = if (src.isInstanceOf[A]) src else src.<--[Accounts]
+
+    def getAccount(id: Long): Option[Account] =
+      for {
+        accounts <- src.accounts.toOption
+      } yield accounts.get(id)
+
+  }
+  implicit class LederOperations[A <: Accounts with Date](src: dataset[A])(
+    implicit taga: TypeTag[A]
+  ) {
+    def withdraw(account: Balance, amt: Double): dataset[A] =
+      for {
+        accounts <- src.accounts
+        date <- src.currentDate
+        updtdAcct <- accounts.get(account.id).spend(amt, date)
+        res <- accounts.update(updtdAcct)
+      } yield src ++ res
+    def deposit(account: Balance, amt: Double): dataset[A] =
+      for {
+        accounts <- src.accounts
+        date <- src.currentDate
+        updtdAcct <- accounts.get(account.id).deposit(amt, date)
+        res <- accounts.update(updtdAcct)
+      } yield src ++ res
+    def recordMarketGrowth(account: BokerageAccount, amt: Double): dataset[A] =
+      for {
+        accounts <- src.accounts
+        date <- src.currentDate
+        res <- accounts.addEvents(marketGrowthEvent(amt, account.id, date))
+      } yield src ++ res
+    def recordMarketLoss(account: BokerageAccount, amt: Double): dataset[A] =
+      for {
+        accounts <- src.accounts
+        date <- src.currentDate
+        res <- accounts
+          .addEvents(marketLossEvent(amt, account.id, date))
+      } yield src ++ res
+
+  }
 
 }
