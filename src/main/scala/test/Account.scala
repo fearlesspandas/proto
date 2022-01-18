@@ -44,28 +44,20 @@ package object Account {
   trait AccountingCostBasisEvent extends AccountingEvent
 
   trait Account extends ::[Account] with EventLog[AccountingEvent, Account]
-  implicit class AccountGrammer[A <: dataset[Account]](src: dataset[A])(implicit taga: TypeTag[A]) {
-    def events: produces[Seq[AccountingEvent]] =
-      src.account.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
-        someval(d.get.value)
-      )
-    def eventsAtDate(date:Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
-    def account: dataset[Account] =
-      if (src.isInstanceOf[Account]) src.asInstanceOf[Account] else src.<--[Account]
-  }
+
 //define your fields and field operations
   trait Balance extends Account {
     //could be replaced by a def but this way we can save some compute on multiple calls within the same context
     lazy val balance: Double = this.value
       .collect({ case b: AccountingBalanceEvent => b })
       .net + initialBalance
-
     val initialBalance: Double
-
     def spend(amt: Double, date: Date) =
       if (amt > balance) throw new Error("balance of account exceeded")
       else this.addEvent(spendEvent(amt, this.id, date))
-    def deposit(amt: Double, date: Date) = this.addEvent(depositEvent(amt, this.id, date))
+    def deposit(amt: Double, date: Date) =
+      if (amt < 0) throw new Error("cannot deposit a negative amount")
+      else this.addEvent(depositEvent(amt, this.id, date))
   }
 
   trait CostBasis extends Account {
@@ -86,6 +78,12 @@ package object Account {
 
   implicit class AccountAPI[A <: Account](src: dataset[A])(implicit taga: TypeTag[A]) {
     def account: dataset[Account] = if (src.isInstanceOf[Account]) src else src.<--[Account]
+    def eventsAtDate(date: Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
+
+    def events: produces[Seq[AccountingEvent]] =
+      src.account.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
+        someval(d.get.value)
+      )
   }
 
   case class increaseCostBasisEvent(amount: Double, accountid: Long, date: LocalDate)
@@ -134,15 +132,19 @@ package object Account {
   }
 
   implicit class AccountsAPI[A <: Accounts](src: dataset[A])(implicit taga: TypeTag[A]) {
+    def eventsAtDate(date: Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
+
     def events: produces[Seq[AccountingEvent]] =
       src.accounts.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
         someval(d.get.value.flatMap(_.value))
       )
-    def eventsAtDate(date:Date) = src.events.filter(e => date.isWithinPeriod(Year(e.date)))
+
     def underlyingAccounts: produces[Seq[Account]] =
       someval((for {
         accounts <- src.accounts
       } yield accounts).getValue.value.toSeq)
+
+    def accounts: dataset[Accounts] = if (src.isInstanceOf[A]) src else src.<--[Accounts]
 
     def addEvents(events: AccountingEvent*): dataset[Accounts] =
       for {
@@ -153,8 +155,6 @@ package object Account {
       for {
         accounts <- src.accounts.toOption
       } yield accounts.get(id)
-
-    def accounts: dataset[Accounts] = if (src.isInstanceOf[A]) src else src.<--[Accounts]
 
   }
   implicit class LederOperations[A <: Accounts with Date](src: dataset[A])(

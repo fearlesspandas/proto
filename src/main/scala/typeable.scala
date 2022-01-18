@@ -51,6 +51,7 @@ package object dataset {
   private[core] def apply[A <: dataset[_]](a: A): dataset[A] = a.asInstanceOf[dataset[A]]
 
   sealed trait dataset[+A <: dataset[_]] {
+
     val isSelf = this.isInstanceOf[A]
     val isContext = false
     private[core] val context: contexttype

@@ -5,7 +5,7 @@ import Typical.core.dataset._
 import test.Account.{Accounts, BokerageAccount}
 import Date._
 import AccountRates._
-
+import test.Fields._
 import scala.reflect.runtime.universe.TypeTag
 package object AccountUtils{
   case object GrowAccounts extends (Accounts with AccountRates with Date ==> Accounts) {

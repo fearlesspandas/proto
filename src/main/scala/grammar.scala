@@ -56,6 +56,8 @@ package object grammar {
         //if(res.isContext) res.multifetch[C] else res
         res
       }
+//  def collect[C](pf: PartialFunction[B, C]): Option[C] =
+//    if (!m.isEmpty) pf.lift(this.get) else None
 
   }
 
