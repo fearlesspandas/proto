@@ -92,7 +92,7 @@ object runner {
 
   val rentPeriod = dates(Month(LocalDate.now()),LocalDate.now().plusYears(20))
 
-  val starterProperties = Properties(Seq(RentalProperty(1,1300,rentPeriod)),Seq())
+  val starterProperties = Properties(Seq(RentalProperty(1,1300,rentPeriod)))
 
   val startingDate = Month(LocalDate.now())
 

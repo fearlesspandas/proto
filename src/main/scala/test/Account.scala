@@ -44,7 +44,7 @@ package object Account {
   trait AccountingCostBasisEvent extends AccountingEvent
 
   trait Account extends ::[Account] with EventLog[AccountingEvent, Account]
-  implicit class AccountGrammer[A <: dataset[Account]](src: dataset[A])(implicit taga: TypeTag[A]) {
+  implicit class AccountGrammer[A <: Account](src: dataset[A])(implicit taga: TypeTag[A]) {
     def events: produces[Seq[AccountingEvent]] =
       src.account.biMap[produces[Seq[AccountingEvent]]](err => noVal(err.value: _*))(d =>
         someval(d.get.value)
@@ -85,7 +85,7 @@ package object Account {
       extends AccountingBalanceEvent
 
   implicit class AccountAPI[A <: Account](src: dataset[A])(implicit taga: TypeTag[A]) {
-    def account: dataset[Account] = if (src.isInstanceOf[Account]) src else src.<--[Account]
+    //def account: dataset[Account] = if (src.isInstanceOf[Account]) src else src.<--[Account]
   }
 
   case class increaseCostBasisEvent(amount: Double, accountid: Long, date: LocalDate)
