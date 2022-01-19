@@ -19,7 +19,7 @@ trait Expense{
   case class Expenses(value:Seq[Expense]) extends (ExpManDeps ==> Expenses) with produces[Seq[Expense]]{
     override def apply(src: dataset[ExpManDeps]): dataset[Expenses] = for{
       properties <- src.properties
-    }yield Expenses(properties.events.collect({case e: Expense => e}))
+    }yield Expenses(properties.events.collect({case e: Expense => e}).toSeq)
   }
   implicit class ExpManGrammar[A<:ExpManDeps](src:dataset[A])(implicit taga:TypeTag[A]){
     def expenses:dataset[Expenses] = src.<-+[Expenses]

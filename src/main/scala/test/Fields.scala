@@ -9,36 +9,34 @@ import test.Event.Event
 import scala.reflect.runtime.universe.TypeTag
 object Fields {
 
-  case class Bal[A <: dataset[A] with produces[Seq[Event]]](
+  case class Balance[A <: dataset[A] with produces[Seq[Event]]](
     value: Option[Double],
     events: Seq[Event] = Seq()
   )(
-    implicit taga: TypeTag[A],
-    tagself: TypeTag[Bal[A]]
-  ) extends (A ==> Bal[A])
+    implicit taga: TypeTag[A]
+  ) extends (A ==> Balance[A])
       with produces[Option[Double]] {
-    override def apply(src: dataset[A]): dataset[Bal[A]] =
+    override def apply(src: dataset[A]): dataset[Balance[A]] =
       for {
         model <- src.<--[A]
       } yield {
         val releventEvents = model.value.collect({ case b: AccountingBalanceEvent => b })
         val res =
-          Bal[A](Some(releventEvents.net), releventEvents)
+          Balance[A](Some(releventEvents.net), releventEvents)
         res
       }
   }
-
-  case class CosBas[A <: dataset[A] with produces[Seq[Event]]](value: Option[Double])(
-    implicit taga: TypeTag[A],
-    tagself: TypeTag[Bal[A]]
-  ) extends (A ==> Bal[A])
+  //todo maybe make fields implicit classes?
+  case class CostBasis[A <: dataset[A] with produces[Seq[Event]]](value: Option[Double])(
+    implicit taga: TypeTag[A]
+  ) extends (A ==> CostBasis[A])
       with produces[Option[Double]] {
-    override def apply(src: dataset[A]): dataset[Bal[A]] =
+    override def apply(src: dataset[A]): dataset[CostBasis[A]] =
       for {
         model <- src.<--[A]
       } yield {
         val res =
-          Bal[A](Some(model.value.collect({ case b: AccountingCostBasisEvent => b }).net))
+          CostBasis[A](Some(model.value.collect({ case b: AccountingCostBasisEvent => b }).net))
         res
       }
   }
@@ -46,10 +44,12 @@ object Fields {
   implicit class FieldGrammer[A <: dataset[A] with produces[Seq[Event]]](src: dataset[A])(
     implicit taga: TypeTag[A]
   ) {
-    def bal: dataset[Bal[A]] = {
-      val model = if (src.isContext) src.<--[A].get else src.get
-      val ctx = data[A]() ++ model ++ (new Bal[A](None))
-      ctx.<-+[Bal[A]]
-    }
+    lazy val BALANCE: dataset[Balance[A]] =
+      ctx.<-+[Balance[A]]
+    lazy val COST_BASIS =
+      ctx.<-+[CostBasis[A]]
+    private val model = if (src.isContext) src.<--[A].get else src.get
+    private val ctx = data[A]() ++ model ++ (new Balance[A](None))
+
   }
 }

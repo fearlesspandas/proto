@@ -7,5 +7,7 @@ import Typical.core.dataset._
 import Consumption._
 import Account._
  object Event {
-  trait Event
+  trait Event{
+    val date:LocalDate
+  }
 }

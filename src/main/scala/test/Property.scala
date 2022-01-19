@@ -4,6 +4,8 @@ import java.time.LocalDate
 import Typical.core.dataset._
 import Typical.core.grammar._
 import test.Account._
+import test.Containers.EventBasedModelContainer
+import test.Containers.ModelEventLog
 import test.Date._
 import test.Event.Event
 import test.Expense.Expense
@@ -16,17 +18,17 @@ package object Property {
   type PropertyEventGenDeps = Date
 
 //define property types
-  trait propertyEvent extends Identifiable with Event{
+  trait propertyEvent extends Identifiable with Event {
     val propertyId: Long
     val id = propertyId
     val amount: Double
     val date: LocalDate
   }
 
-  trait Property extends ModelEventLog[propertyEvent, PropertyEventDeps, Property] {
+  trait Property extends ModelEventLog[PropertyEventDeps, Property] {
     val id: Long
     val dateRange: DateRange
-    val eventLog: Seq[propertyEvent]
+    val eventLog: Seq[Event]
     val value = eventLog
 
     def isActive(date: Date): Boolean = !preceeds(date) && !halted(date)
@@ -40,7 +42,7 @@ package object Property {
     id: Long,
     rent: Double,
     dateRange: DateRange,
-    eventLog: Seq[propertyEvent] = Seq()
+    eventLog: Seq[Event] = Seq()
   ) extends Property {
     override def apply(src: dataset[PropertyEventDeps]): dataset[Property] =
       for {
@@ -52,7 +54,7 @@ package object Property {
         } else this
       }
 
-    def addEvent(events: propertyEvent*): dataset[Property] =
+    def addEvent(events: (Event with Identifiable)*): dataset[Property] =
       this.copy(eventLog = events ++ this.eventLog)
   }
 
@@ -61,11 +63,11 @@ package object Property {
     costBasis: Double,
     marketValue: Double,
     dateRange: DateRange,
-    eventLog: Seq[propertyEvent] = Seq()
+    eventLog: Seq[Event] = Seq()
   ) extends Property {
     override def apply(v1: dataset[PropertyEventDeps]): dataset[Property] = this
 
-    def addEvent(events: propertyEvent*): dataset[Property] =
+    def addEvent(events: (Event with Identifiable)*): dataset[Property] =
       this.copy(eventLog = events ++ this.eventLog)
   }
 
@@ -83,7 +85,6 @@ package object Property {
     val taga: TypeTag[Property],
     val tagdeps: TypeTag[PropertyEventDeps with Properties]
   ) extends EventBasedModelContainer[
-        propertyEvent,
         PropertyEventDeps with Properties,
         Property,
         Properties
@@ -93,15 +94,6 @@ package object Property {
 
   }
   implicit class PropertiesAPI[A <: Properties](src: dataset[A])(implicit taga: TypeTag[A]) {
-    def eventsAtDate(date: Date): produces[Seq[propertyEvent]] = someval(
-      src.events.filter(e => date.isWithinPeriod(Year(e.date)))
-    )
-
-    def events: produces[Seq[propertyEvent]] =
-      src.properties.biMap[produces[Seq[propertyEvent]]](err => noVal(err.value: _*))(d =>
-        someval(d.get.value.flatMap(_.value))
-      )
-
     def properties: dataset[Properties] =
       if (src.isInstanceOf[Properties]) src else src.<--[Properties]
   }
@@ -132,7 +124,7 @@ package object Property {
           })
         rentPaymentsPaid.foldLeft(src)((accumSrc, event) =>
           accumSrc.withdraw(rentAcct, event.amount)
-        ) ++ properties.addEvent(rentPaymentsPaid: _*)
+        ) ++ properties.addEvent(rentPaymentsPaid.toSeq: _*)
       }
   }
 

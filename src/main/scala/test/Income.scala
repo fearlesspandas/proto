@@ -4,6 +4,8 @@ import java.time.LocalDate
 import Typical.core.dataset._
 import Typical.core.grammar._
 import test.Account._
+import test.Containers.EventBasedModelContainer
+import test.Containers.ModelEventLog
 import test.Date._
 import test.Event.Event
 
@@ -22,7 +24,7 @@ package object Income {
   }
 
 //define incomes
-  trait Income extends ModelEventLog[IncomeEvent, IncomeEventDeps, Income] {
+  trait Income extends ModelEventLog[IncomeEventDeps, Income] {
     val id: Long
     val payableTo: Long
     val amount: Double
@@ -42,7 +44,7 @@ package object Income {
     amount: Double,
     payableTo: Long,
     dateRange: DateRange,
-    eventLog: Seq[IncomeEvent] = Seq()
+    eventLog: Seq[Event] = Seq()
   ) extends Income {
     override val value = eventLog
     def apply(src: dataset[IncomeEventDeps]): dataset[Income] =
@@ -58,7 +60,7 @@ package object Income {
           addEvent(res: _*)
         } else this
       })
-    def addEvent(events: IncomeEvent*): dataset[Income] =
+    def addEvent(events: (Event with Identifiable)*): dataset[Income] =
       this.copy(eventLog = events ++ this.eventLog)
   }
 
@@ -67,17 +69,11 @@ package object Income {
     implicit val taga: TypeTag[Income],
     val tagself: TypeTag[Income.Incomes],
     val tagdeps: TypeTag[IncomeEventGenDeps]
-  ) extends EventBasedModelContainer[IncomeEvent, IncomeEventGenDeps, Income, Incomes] {
+  ) extends EventBasedModelContainer[IncomeEventGenDeps, Income, Incomes] {
     override def apply(coll: Map[Long, Income]): dataset[Incomes] = new Incomes(coll.values.toSeq)
   }
 
   implicit class IncomeGrammar[A <: Incomes](src: dataset[A])(implicit taga: TypeTag[A]) {
-    def eventsAtDate(date: Date): Seq[IncomeEvent] =
-      src.events.filter(e => date.isWithinPeriod(Year(e.date)))
-
-    def events: Seq[IncomeEvent] =
-      src.incomes
-        .biMap[Seq[IncomeEvent]](err => Seq())(d => d.get.eventLog ++ d.get.value.flatMap(_.value))
 
     def incomes: dataset[Incomes] =
       if (src.isInstanceOf[Incomes]) src
@@ -98,6 +94,7 @@ package object Income {
       } yield (
         updatedIncomes
           .eventsAtDate(date)
+          .collect({ case i: IncomeEvent => i })
           .foldLeft(src ++ updatedIncomes)((accumsrc, income) =>
             for {
               acctPayable <- accounts.getAccount(income.payableTo).fromOption
