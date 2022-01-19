@@ -40,7 +40,7 @@ object Containers {
       events.foldLeft(this) { (accumincs, e) =>
         val income = accumincs.get(e.id)
         accumincs.apply(income.addEvent(e).get).get
-      }
+      }//todo make full replacement of events
   }
 //  implicit class BasicContainerGram[A<:dataset[_]](src:dataset[A]){
 //    def update[E<:dataset[_],U>:dataset[A]<:BasicContainer[E,U]](elem:E):dataset[A] = for{

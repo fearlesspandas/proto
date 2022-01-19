@@ -2,6 +2,8 @@ package test
 
 import java.time.LocalDate
 
+import test.Fields.Bal
+
 import scala.annotation.implicitNotFound
 
 package object Program{
@@ -53,7 +55,7 @@ package object Program{
         .underlyingAccounts.exists) &&
         src.underlyingAccounts
           .value
-          .map(_.balance)
+          .map(_.bal.get.value.getOrElse(0d))
           .sum > limit
 
     override def next(src: dataset[ProgramDependencies]): Seq[dataset[ProgramDependencies]] = Seq(
@@ -64,7 +66,7 @@ package object Program{
   //define implicit grammar for sim
   import scala.reflect.runtime.universe.TypeTag
   implicit class RunSim[A<:ProgramDependencies](src:dataset[A])(implicit taga:TypeTag[A]){
-    def runSim:dataset[A] = src.+-(Prog(10000000)).-->[Prog]
+    def runSim:dataset[A] = src.+-(Prog(10000)).-->[Prog]
   }
 
 }
@@ -139,7 +141,12 @@ object runner {
     println(res.context)
     val end = System.currentTimeMillis()
     println(s"time elapsed:${end - start} milliseconds")
-    res.console
+    //res.console
+    import test.Fields._
+    val ctx = (res.getAccount(1).fromOption)
+    val acct = res.getAccount(1).fromOption.get
+    println (( ctx ).bal.getValue.get)
+    println(acct.balance)
   }
 
 

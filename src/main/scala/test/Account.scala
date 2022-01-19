@@ -6,6 +6,8 @@ import Typical.core.dataset._
 import Typical.core.grammar._
 import test.Containers.EventBasedBasicContainer
 import test.Date._
+import test.Event.Event
+import test.Fields._
 
 import scala.reflect.runtime.universe.TypeTag
 package object Account {
@@ -33,7 +35,7 @@ package object Account {
       )
   }
 
-  trait AccountingEvent extends ::[AccountingEvent] with Identifiable {
+  trait AccountingEvent extends ::[AccountingEvent] with Identifiable with Event {
     val amount: Double
     val accountid: Long
     val id = accountid
@@ -44,13 +46,12 @@ package object Account {
   trait AccountingCostBasisEvent extends AccountingEvent
 
   trait Account extends ::[Account] with EventLog[AccountingEvent, Account]
-
 //define your fields and field operations
   trait Balance extends Account {
     //could be replaced by a def but this way we can save some compute on multiple calls within the same context
-    lazy val balance: Double = this.value
-      .collect({ case b: AccountingBalanceEvent => b })
-      .net + initialBalance
+    lazy val balance: Double = (for{
+      bal <- this.bal
+    }yield bal).get.value.getOrElse(0d) + initialBalance
     val initialBalance: Double
     def spend(amt: Double, date: Date) =
       if (amt > balance) throw new Error("balance of account exceeded")

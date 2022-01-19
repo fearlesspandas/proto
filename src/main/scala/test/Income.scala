@@ -5,6 +5,7 @@ import Typical.core.dataset._
 import Typical.core.grammar._
 import test.Account._
 import test.Date._
+import test.Event.Event
 
 import scala.reflect.runtime.universe.TypeTag
 package object Income {
@@ -12,7 +13,7 @@ package object Income {
   type IncomeEventDeps = Date
 
   //define income events
-  trait IncomeEvent extends ::[IncomeEvent] with Identifiable {
+  trait IncomeEvent extends ::[IncomeEvent] with Identifiable with Event {
     val incomeId: Long
     val id = incomeId
     val payableTo: Long

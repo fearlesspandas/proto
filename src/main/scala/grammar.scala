@@ -81,7 +81,7 @@ package object grammar {
       //kinda surprised this works
       val flippedRelations = src.relations.map({ case (k, v) => v -> k })
       val tpst = src.context.keys
-        .filterNot(_.toString.contains("object"))
+        .filterNot(k => k.toString.contains("object") || k.toString.contains("dataset") || k.toString.contains("Bal"))
         .tail
         .foldLeft(processCtx(flippedRelations(src.context.keys.head).toString)) { (acc, k) =>
           val filteredKey = processCtx(flippedRelations(k).toString)
@@ -99,6 +99,7 @@ package object grammar {
            |  import Typical.core.grammar._
            |  $importString
            |  import Typical.core.dataset._
+           |  import test.Fields._
            |def wrapper(context: Map[Any,dataset[_]],relations:Map[Any,Any]): Any = {
            |  val src = data[$tpst](context,relations).asInstanceOf[dataset[$tpst]]
            |  $code

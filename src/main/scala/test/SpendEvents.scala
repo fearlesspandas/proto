@@ -2,8 +2,8 @@ package test
 
 import Typical.core.grammar._
 import Typical.core.dataset._
-import EventHandler._
 import Consumption._
+import test.Account.spendEvent
 object SpendEvents{
   type dep = Consumption
   case class SpendEvents(value : Seq[spendEvent]) extends (dep ==> SpendEvents){

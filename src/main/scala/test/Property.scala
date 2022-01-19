@@ -5,6 +5,7 @@ import Typical.core.dataset._
 import Typical.core.grammar._
 import test.Account._
 import test.Date._
+import test.Event.Event
 import test.Expense.Expense
 
 import scala.reflect.runtime.universe.TypeTag
@@ -15,7 +16,7 @@ package object Property {
   type PropertyEventGenDeps = Date
 
 //define property types
-  trait propertyEvent extends Identifiable {
+  trait propertyEvent extends Identifiable with Event{
     val propertyId: Long
     val id = propertyId
     val amount: Double

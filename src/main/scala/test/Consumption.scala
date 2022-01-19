@@ -1,8 +1,8 @@
 package test
 import Typical.core.grammar._
-import EventHandler._
 import Typical.core.dataset._
 import Account._
+import test.Event.Event
 object Consumption {
   type dep = Accounts
   type ConsumptionType = dep ==> Consumption
