@@ -261,7 +261,7 @@ package object grammar {
       are usually going to need to fetch a stateful constructor for of the form dataset[A with B with C] => dataset[A with B with C]
       as one example. The non-private 'fetch' method in turn just restricts its type U to be of form dataset[U],
      */
-    def multifetch[U >: A <: dataset[_]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
+    private[grammar] def multifetch[U >: A <: dataset[_]](implicit ttag: TypeTag[U], tagA: TypeTag[A]): dataset[U] =
       if (src.isEmpty)
         DatasetError[U](new Error(s"Error while performing fetch[${buildId[U]}]"))
           .append(src.asInstanceOf[DatasetError[A]].value: _*)

@@ -1,5 +1,7 @@
 package Typical.core;
 
+import Util.Tree
+
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.runtime.universe.runtimeMirror
 import scala.reflect.runtime.universe.termNames
@@ -56,7 +58,7 @@ package object dataset {
     val isContext = false
     private[core] val context: contexttype
     private[core] val relations: Map[idtype, idtype]
-
+    private[core] val state_tree: Util.Tree[dataset[A]]
     def isEmpty: Boolean
     def biMap[B](ifEmpty: DatasetError[A] => B)(f: dataset[A] => B): B =
       if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
