@@ -1,40 +1,48 @@
 package Typical.core
 object Util {
 
-
   ////state tree
   ///   every dataset has an id
   ///   core operations have an id
   ///   when we  perform an operation we can check if there is a cached state
   ///     which already exists under that combination of id's
 
-  trait Tree[+A]{
-    val parent:Option[Tree[Any]]
-    val children:Set[Tree[Any]]
-    val id:Long
-    val context:A
+  trait Tree[+A] {
+    val parent: Option[Tree[A]]
+    val children: Seq[Tree[A]]
+    val id: Long
+    val context: A
 
-    def applyNoId[B](ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B] = {
-      val id = 999
-      apply[B](id,ctx,parent,children)
-    }
-    def apply[B](id:Long,ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B]
-    def add_child[B](ctx:B):Tree[A] = {
-      apply[A](
-        this.id + 1,
+    def apply[B](id: Long, ctx: B, parent: Option[Tree[B]], children: Seq[Tree[B]]): Tree[B]
+    def add_child[B>:A](ctx: B): Tree[B] =
+      apply[B](
+        this.id,
         this.context,
         this.parent,
-        this.children ++ Set(apply[B](this.id + 1,ctx,Some(this),Set()))
+         Seq(
+          apply[B](
+            this.id + 1,
+            ctx,
+            Some(this),
+            Seq.empty[Tree[A]]
+          )
+        ) ++ this.children
+
       )
-    }
-    def add_child_make_head[B](ctx:B):Tree[B] = {
-      apply[B](this.id + 1,ctx,Some(this.add_child(ctx)),Set())
-    }
+    def add_child_make_head[B>:A](ctx: B): Tree[B] =
+      apply[B](this.id + 1, ctx, Some(this.add_child[B](ctx)), Seq.empty[Tree[A]])
   }
 
-  case class TreeNode[+A](id:Long,parent:Option[Tree[Any]],children:Set[Tree[Any]],context:A) extends Tree[A]{
-    override def apply[B](id:Long,ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B] = {
-      TreeNode[B](id,parent,children,ctx)
-    }
+  case class TreeNode[+A](id: Long, parent: Option[Tree[A]], children: Seq[Tree[A]], context: A)
+      extends Tree[A] {
+    override def apply[B](
+      id: Long,
+      ctx: B,
+      parent: Option[Tree[B]],
+      children: Seq[Tree[B]]
+    ): Tree[B] =
+      TreeNode[B](id, parent, children, ctx)
+
+    override def toString: String = s"Tree $id"
   }
 }

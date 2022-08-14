@@ -228,11 +228,14 @@ package object grammar {
               .apply(src)
               .fold(e =>
                 DatasetError[A](new Error(s"Failure to run ${buildId[U]}")).append(e.value: _*)
-              )(b =>
-                src
-                  .withContext(src.context ++ b.context)
-                  .withRelations(src.relations ++ b.relations)
-                  .withStateTree(src.state_tree.add_child_make_head(src))
+              )(b => {
+                val newsrc =
+                  src
+                    .withContext(src.context ++ b.context)
+                    .withRelations(src.relations ++ b.relations)
+                    newsrc
+                    .withStateTree(src.state_tree.add_child_make_head(newsrc))
+              }
               )
           }
 
@@ -335,7 +338,10 @@ package object grammar {
           .asInstanceOf[dataset[A with U with T]]
       }
 
-    def state_tree(implicit taga:TypeTag[A]):Util.Tree[Any] = a.state_tree
+    def state_tree(implicit taga:TypeTag[A]):Util.Tree[dataset[A]] = {
+      val t = a.state_tree
+      t
+    }
   }
 
   implicit class Merger[A <: dataset[A]](a: dataset[A])(implicit taga: TypeTag[A]) {

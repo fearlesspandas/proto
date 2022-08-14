@@ -89,7 +89,7 @@ package object dataset {
 
     override private[core] lazy val state_tree: Util.Tree[dataset[A]] = null
 
-    override def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
+    override private[core] def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
   }
 
   trait ==>[-dependencies <: dataset[_], +output <: dataset[_]]
@@ -111,7 +111,7 @@ package object dataset {
 
     override private[core] lazy val state_tree: Util.Tree[dataset[output]] = null
 
-    override def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
+    override private[core] def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
   }
 
   trait index[self <: dataset[_]] extends (self ==> self) {
@@ -151,7 +151,7 @@ package object dataset {
       }
 
     override private[core] lazy val state_tree:Util.Tree[dataset[A]] = null
-    override def withStateTree[B<:dataset[_]](tree:Tree[dataset[B]]) = ???
+    override private[core] def withStateTree[B<:dataset[_]](tree:Tree[dataset[B]]) = ???
   }
 
   case class data[A <: dataset[_]](
@@ -178,7 +178,7 @@ package object dataset {
 
     override private[core] lazy val state_tree: Util.Tree[dataset[A]] = {
       if(state_treeOpt.isEmpty)
-        Util.TreeNode[dataset[A]](0, None, Set(), this)
+        Util.TreeNode[dataset[A]](0, None, Seq(), this)
       else state_treeOpt.get
     }
 
