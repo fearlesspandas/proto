@@ -335,7 +335,7 @@ package object grammar {
           .asInstanceOf[dataset[A with U with T]]
       }
 
-    def state_treee(implicit taga:TypeTag[A]):Util.Tree[Any] = a.state_tree
+    def state_tree(implicit taga:TypeTag[A]):Util.Tree[Any] = a.state_tree
   }
 
   implicit class Merger[A <: dataset[A]](a: dataset[A])(implicit taga: TypeTag[A]) {
