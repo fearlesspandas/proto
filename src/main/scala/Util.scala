@@ -9,26 +9,32 @@ object Util {
   ///     which already exists under that combination of id's
 
   trait Tree[+A]{
-    val parent:Option[Tree[A]]
-    val children:Set[Tree[_<:A]]
+    val parent:Option[Tree[Any]]
+    val children:Set[Tree[Any]]
     val id:Long
     val context:A
 
-    def apply[B](ctx:B,parent:Option[Tree[B]],children:Set[Tree[B]]):Tree[B] = {
-      val id = ???
-      apply(id,ctx,parent,children)
+    def applyNoId[B](ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B] = {
+      val id = 999
+      apply[B](id,ctx,parent,children)
     }
-    def apply[B](id:Long,ctx:B,parent:Option[Tree[B]],children:Set[Tree[B]]):Tree[B]
-    def add_child(ctx:_<:A):Tree[A] = {
+    def apply[B](id:Long,ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B]
+    def add_child[B](ctx:B):Tree[A] = {
       apply[A](
-        this.id,
+        this.id + 1,
         this.context,
         this.parent,
-        this.children ++ apply[A](ctx,Some(this),Set())
+        this.children ++ Set(apply[B](this.id + 1,ctx,Some(this),Set()))
       )
     }
-    def add_child_make_head(ctx:_<:A):Tree[A] = {
-      apply[A](ctx,Some(this),Set())
+    def add_child_make_head[B](ctx:B):Tree[B] = {
+      apply[B](this.id + 1,ctx,Some(this.add_child(ctx)),Set())
+    }
+  }
+
+  case class TreeNode[+A](id:Long,parent:Option[Tree[Any]],children:Set[Tree[Any]],context:A) extends Tree[A]{
+    override def apply[B](id:Long,ctx:B,parent:Option[Tree[Any]],children:Set[Tree[Any]]):Tree[B] = {
+      TreeNode[B](id,parent,children,ctx)
     }
   }
 }

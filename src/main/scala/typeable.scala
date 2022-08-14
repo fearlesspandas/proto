@@ -67,6 +67,7 @@ package object dataset {
     ): dataset[B] = if (isEmpty) ifEmpty(this.asInstanceOf[DatasetError[A]]) else f(this)
     private[core] def withContext(ctx: contexttype): dataset[A]
     private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A]
+    private[core] def withStateTree[B <: dataset[_]](tree: Util.Tree[dataset[B]]): dataset[B]
   }
 
   trait produces[+T] {
@@ -85,6 +86,10 @@ package object dataset {
 
     override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A] =
       DatasetError[A](new Error(s"No withRelations method available for ${this.toString}"))
+
+    override private[core] lazy val state_tree: Util.Tree[dataset[A]] = null
+
+    override def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
   }
 
   trait ==>[-dependencies <: dataset[_], +output <: dataset[_]]
@@ -103,6 +108,10 @@ package object dataset {
 
     override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[output] =
       DatasetError[output](new Error(s"No withRelation method available ${this.toString}"))
+
+    override private[core] lazy val state_tree: Util.Tree[dataset[output]] = null
+
+    override def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]) = ???
   }
 
   trait index[self <: dataset[_]] extends (self ==> self) {
@@ -124,7 +133,7 @@ package object dataset {
     override val exists = false
   }
 
-  case class Val[T](value: T) extends ::[Val[_]] with produces[T]
+  //case class Val[T](value: T) extends ::[Val[_]] with produces[T]
 
   case class DatasetError[+A <: dataset[_]](value: Error*) extends dataset[A] {
     override private[core] val context: contexttype = Map()
@@ -140,11 +149,15 @@ package object dataset {
       new DatasetError[A](this.value: _*) {
         override val relations = rel
       }
+
+    override private[core] lazy val state_tree:Util.Tree[dataset[A]] = null
+    override def withStateTree[B<:dataset[_]](tree:Tree[dataset[B]]) = ???
   }
 
   case class data[A <: dataset[_]](
     override val context: contexttype = Map(),
-    relations: Map[idtype, idtype] = Map()
+    relations: Map[idtype, idtype] = Map(),
+    state_treeOpt:Option[Util.Tree[dataset[A]]] = None
   ) extends dataset[A]
       with produces[contexttype] {
     override val value = context
@@ -162,5 +175,14 @@ package object dataset {
 
     override private[core] def withRelations(rel: Map[idtype, idtype]): dataset[A] =
       data(this.context, rel)
+
+    override private[core] lazy val state_tree: Util.Tree[dataset[A]] = {
+      if(state_treeOpt.isEmpty)
+        Util.TreeNode[dataset[A]](0, None, Set(), this)
+      else state_treeOpt.get
+    }
+
+    override private[core] def withStateTree[B <: dataset[_]](tree: Tree[dataset[B]]): dataset[B] =
+      new data[B](this.context, this.relations,Some(tree))
   }
 }

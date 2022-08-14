@@ -106,6 +106,7 @@ object runner {
     //run solve baseLoop for solve condition
     val res: data[ProgramDependencies] =
       dat.toWeeklyCadence
+        //.receiveIncomes
         .solve[Prog]
         .asInstanceOf[data[ProgramDependencies]]
     println(res.context)
@@ -117,6 +118,7 @@ object runner {
     val acct = res.getAccount(1).fromOption.get
     println((ctx).BALANCE.getValue.get)
     println(res.accounts.get.events)
+
     res.console
   }
 

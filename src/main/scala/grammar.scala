@@ -100,15 +100,15 @@ package object grammar {
            |  $importString
            |  import Typical.core.dataset._
            |  import test.Fields._
-           |def wrapper(context: Map[Any,dataset[_]],relations:Map[Any,Any]): Any = {
-           |  val src = data[$tpst](context,relations).asInstanceOf[dataset[$tpst]]
+           |def wrapper(context: Map[Any,dataset[_]],relations:Map[Any,Any],tree:Util.Tree[dataset[$tpst]]): Any = {
+           |  val src = data[$tpst](context,relations,Some(tree)).asInstanceOf[dataset[$tpst]]
            |  $code
            |}
            |wrapper _
       """.stripMargin)
       val f = tb.compile(tree)
       val wrapper = f()
-      wrapper.asInstanceOf[(contexttype, Map[Any, Any]) => Any](src.context, src.relations)
+      wrapper.asInstanceOf[(contexttype, Map[Any, Any],Util.Tree[dataset[A]]) => Any](src.context, src.relations,src.state_tree)
     }
     def console(implicit taga: TypeTag[A]): dataset[A] = {
 
@@ -232,6 +232,7 @@ package object grammar {
                 src
                   .withContext(src.context ++ b.context)
                   .withRelations(src.relations ++ b.relations)
+                  .withStateTree(src.state_tree.add_child_make_head(src))
               )
           }
 
@@ -325,10 +326,16 @@ package object grammar {
         val newRelations =
           a.relations.updated(buildIdLor[U](a.relations), buildIdLor[T](a.relations))
         val newContext = a.context.updated(buildIdLor[U](newRelations), value)
+        val b =
         a.withRelations(newRelations)
           .withContext(newContext)
+        val t = a.state_tree.add_child_make_head(b)
+
+        b.withStateTree(t)
           .asInstanceOf[dataset[A with U with T]]
       }
+
+    def state_treee(implicit taga:TypeTag[A]):Util.Tree[Any] = a.state_tree
   }
 
   implicit class Merger[A <: dataset[A]](a: dataset[A])(implicit taga: TypeTag[A]) {
